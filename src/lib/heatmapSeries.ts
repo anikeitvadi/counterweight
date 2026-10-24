@@ -16,12 +16,12 @@ export type Palette = 'viridis' | 'mono';
 export type RGB = [number, number, number];
 type Stop = { at: number; c: RGB };
 
+// Plain viridis: the field is its first stop, so faint bands read as a slightly lighter purple-blue and only real stacks go yellow.
 const VIRIDIS: Stop[] = [
-  { at: 0, c: [48, 10, 72] },
-  { at: 0.2, c: [68, 1, 84] },
-  { at: 0.4, c: [59, 82, 139] },
-  { at: 0.6, c: [33, 145, 140] },
-  { at: 0.8, c: [94, 201, 98] },
+  { at: 0, c: [68, 1, 84] },
+  { at: 0.25, c: [59, 82, 139] },
+  { at: 0.5, c: [33, 145, 140] },
+  { at: 0.75, c: [94, 201, 98] },
   { at: 1, c: [253, 231, 37] },
 ];
 const MONO_DARK: Stop[] = [
@@ -101,7 +101,7 @@ export interface HeatmapOptions {
   gamma: number;
 }
 
-const DEFAULTS: HeatmapOptions = { palette: 'viridis', theme: 'dark', threshold: 0.2, gamma: 1.5 };
+const DEFAULTS: HeatmapOptions = { palette: 'viridis', theme: 'dark', threshold: 0.05, gamma: 1 };
 
 class HeatmapRenderer implements IPrimitivePaneRenderer {
   private cacheKey = '';

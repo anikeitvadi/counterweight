@@ -40,7 +40,7 @@ describe('liquidation heatmap estimator', () => {
   });
 
   it('price trading through a level clears it', () => {
-    // open positions at 100, then a bar whose low sweeps to 85: every long level ≥ 85 (10×, 20×, 25×… all of them) is gone
+    // open positions at 100, then a bar whose low sweeps to 85: every long level ≥ 85 (25×, 50×, 100×: all of them) is gone
     const { price, oi } = series([bar(0, 100, 10), bar(60, 100, 20), bar(120, 85, 20, 100, 85)]);
     const h = computeHeatmap(price, oi, { model: 'balanced', mm: 0.005, bins: 400 })!;
     const last = (h.times.length - 1) * h.bins;
@@ -65,6 +65,26 @@ describe('liquidation heatmap estimator', () => {
     const liveLong = Array.from(h.long.slice(last, last + h.bins)).reduce((s, v) => s + v, 0);
     const liveShort = Array.from(h.short.slice(last, last + h.bins)).reduce((s, v) => s + v, 0);
     expect(liveLong).toBeGreaterThan(liveShort);
+  });
+
+  it('settles open interest as one net entry per window', () => {
+    // OI 10 → 15 → 12 over one 2-bar window: net +2 at the window close, not +5 then ×0.8
+    const { price, oi } = series([bar(0, 100, 10), bar(60, 100, 15), bar(120, 100, 12), bar(180, 100, 12)]);
+    const h = computeHeatmap(price, oi, { model: 'balanced', mm: 0.005, bins: 400, entryBars: 2 })!;
+    const last = (h.times.length - 1) * h.bins;
+    const liveLong = Array.from(h.long.slice(last, last + h.bins)).reduce((s, v) => s + v, 0);
+    expect(liveLong).toBeCloseTo(100, 3); // (12 - 10) × 100 × 0.5
+    const perBar = computeHeatmap(price, oi, { model: 'balanced', mm: 0.005, bins: 400 })!;
+    const perBarLong = Array.from(perBar.long.slice(last, last + perBar.bins)).reduce((s, v) => s + v, 0);
+    expect(perBarLong).toBeCloseTo(250 * 0.8, 3);
+  });
+
+  it('bin height follows binPct and is capped by bins', () => {
+    const { price, oi } = series([bar(0, 100, 10), bar(60, 100, 20), bar(120, 100, 20)]);
+    const h = computeHeatmap(price, oi, { model: 'balanced', mm: 0.005, bins: 400, binPct: 0.001 })!;
+    expect(h.bins).toBeLessThan(400);
+    expect(h.binSize / 100).toBeCloseTo(0.001, 3);
+    expect(computeHeatmap(price, oi, { model: 'balanced', mm: 0.005, bins: 50, binPct: 0.001 })!.bins).toBe(50);
   });
 
   it('returns null without enough joined bars and ignores unmatched timestamps', () => {

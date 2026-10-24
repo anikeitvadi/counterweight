@@ -61,7 +61,7 @@ Black-Scholes greeks (`lib/bs.ts`) for venues that do not publish them, and Delt
 
 ## Liquidation heatmap (`lib/liquidation.ts`, `lib/heatmap.worker.ts`)
 
-An estimate, not a feed: each bar's change in perp open interest is spread over leverage tiers (10×–100×),
+An estimate, not a feed: the net change in perp open interest over each entry window (about 48 per range: 30 minutes on 1D) is spread over three leverage tiers (25×, 50×, 100×),
 mapped to the liquidation prices those entries imply, cleared when price trades through them and scaled
 down when open interest falls. The estimator runs in a Web Worker; `useHeatmap` posts candles and OI in and
 receives a price × time grid. Rendering uses TradingView's lightweight-charts with two custom pieces:

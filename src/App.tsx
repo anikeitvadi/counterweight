@@ -57,7 +57,7 @@ function ageText(ms: number | null, now: number): string {
 
 export function App() {
   const [asset, setAsset] = useLocalStorage<Asset>('cd.asset', 'BTC');
-  const [range, setRange] = useLocalStorage<RangeKey>('cd.range', '3D');
+  const [range, setRange] = useLocalStorage<RangeKey>('cd.range', '1D');
   const [storedPanels, setPanels] = useLocalStorage<Partial<Record<PanelKey, boolean>>>('cd.panels', ALL_ON);
   const panels: Record<PanelKey, boolean> = { ...ALL_ON, ...storedPanels };
   const [storedOrder, setOrder] = useLocalStorage<PanelKey[]>('cd.order', DEFAULT_ORDER);
@@ -75,7 +75,7 @@ export function App() {
   const [side, setSide] = useLocalStorage<LiqSide>('cd.side', 'all');
   const [model, setModel] = useLocalStorage<LiqModel>('cd.model', 'balanced');
   const [palette, setPalette] = useLocalStorage<Palette>('cd.palette', 'viridis');
-  const [threshold, setThreshold] = useLocalStorage<number>('cd.threshold', 0.2);
+  const [threshold, setThreshold] = useLocalStorage<number>('cd.threshold2', 0.05);
   const [showLiq, setShowLiq] = useLocalStorage<boolean>('cd.showLiq', true);
   const [showWalls, setShowWalls] = useLocalStorage<boolean>('cd.showWalls', false);
   const [oiUsd, setOiUsd] = useLocalStorage<boolean>('cd.oiUsd', true);
@@ -510,7 +510,7 @@ export function App() {
         Data: options chain from <a href="https://www.delta.exchange" target="_blank" rel="noreferrer">Delta Exchange</a> (default; gold is Delta only) or{' '}
         <a href="https://www.deribit.com" target="_blank" rel="noreferrer">Deribit</a> (BTC, ETH, header toggle); perp price, open interest, funding and liquidations from{' '}
         <a href="https://www.okx.com" target="_blank" rel="noreferrer">OKX</a> (streamed over websocket; candles and OI history refreshed every 60s); IV rank from Deribit's DVOL.
-        Liquidation levels are estimates derived from open-interest changes and assumed leverage tiers (10×–100×), not confirmed positions. Gamma exposure assumes dealers are long calls and short puts.
+        Liquidation levels are estimates derived from open-interest changes and assumed leverage tiers (25×, 50×, 100×), not confirmed positions. Gamma exposure assumes dealers are long calls and short puts.
       </p>
     </div>
   );

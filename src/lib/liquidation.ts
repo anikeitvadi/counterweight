@@ -17,17 +17,24 @@ export interface LiqConfig {
   model: LiqModel;
   /** Maintenance margin as a fraction (0.005 = 0.5%). */
   mm: number;
+  /** Upper bound on price bins. */
   bins: number;
+  /** Target bin height as a fraction of price (0.001 = 0.1%); the bin count follows from the range, capped at `bins`. */
+  binPct?: number;
+  /** Bars per entry window: open-interest change is settled as one net entry per window (1 = every bar). */
+  entryBars?: number;
 }
 
+/**
+ * Leverage tiers for new positions. Three tiers, the way the public liquidation maps draw them: each entry
+ * leaves one band per tier per side, at 1%, 2% and 4% from the entry price (plus maintenance margin).
+ */
 export const LEVERAGE_TIERS: Array<{ lev: number; w: number }> = [
-  { lev: 10, w: 0.18 },
-  { lev: 20, w: 0.22 },
-  { lev: 25, w: 0.22 },
-  { lev: 50, w: 0.18 },
-  { lev: 75, w: 0.1 },
-  { lev: 100, w: 0.1 },
+  { lev: 25, w: 0.4 },
+  { lev: 50, w: 0.35 },
+  { lev: 100, w: 0.25 },
 ];
+const MAX_DIST = 1 / LEVERAGE_TIERS[0].lev;
 
 export interface Heatmap {
   times: number[];
@@ -62,11 +69,13 @@ export function computeHeatmap(price: Candle[], oi: Candle[], cfg: LiqConfig): H
     if (c.l < lo) lo = c.l;
     if (c.h > hi) hi = c.h;
   }
-  // Room for the 10× levels (±10%) on both sides of the traded range.
-  lo *= 0.89;
-  hi *= 1.11;
-  const bins = cfg.bins;
+  // Room for the widest tier on both sides of the traded range.
+  lo *= 1 - MAX_DIST - 0.01;
+  hi *= 1 + MAX_DIST + 0.01;
+  const mid = (lo + hi) / 2;
+  const bins = cfg.binPct ? Math.min(cfg.bins, Math.max(40, Math.round((hi - lo) / (mid * cfg.binPct)))) : cfg.bins;
   const binSize = (hi - lo) / bins;
+  const entryBars = Math.max(1, cfg.entryBars ?? 1);
   const binOf = (p: number) => Math.min(bins - 1, Math.max(0, Math.floor((p - lo) / binSize)));
   const levelOf = (b: number) => lo + (b + 0.5) * binSize;
 
@@ -79,41 +88,45 @@ export function computeHeatmap(price: Candle[], oi: Candle[], cfg: LiqConfig): H
   const sampleA: number[] = [];
   const stride = Math.max(1, Math.floor((rows.length * bins) / 60_000));
   let k = 0;
+  // Entry window: OI at the window's first bar and the price there; settled at the window's last bar.
+  let windowOi = oiByT.get(rows[0].t)!;
+  let windowPx = rows[0].c;
 
   for (let i = 0; i < rows.length; i++) {
     const c = rows[i];
     const oiNow = oiByT.get(c.t)!;
     if (i > 0) {
-      const prev = rows[i - 1];
-      const oiPrev = oiByT.get(prev.t)!;
-
-      // 1. Price traded through a level -> those positions are gone.
+      // 1. Price traded through a level -> those positions are gone (checked every bar).
       for (let b = 0; b < bins; b++) {
         if (liveLong[b] > 0 && levelOf(b) >= c.l) liveLong[b] = 0;
         if (liveShort[b] > 0 && levelOf(b) <= c.h) liveShort[b] = 0;
       }
 
-      // 2. Open interest fell -> positions closed, scale the book down.
-      if (oiPrev > 0 && oiNow < oiPrev) {
-        const f = oiNow / oiPrev;
-        for (let b = 0; b < bins; b++) {
-          liveLong[b] *= f;
-          liveShort[b] *= f;
+      if (i % entryBars === 0 || i === rows.length - 1) {
+        // 2. Net open interest fell over the window -> positions closed, scale the book down.
+        if (windowOi > 0 && oiNow < windowOi) {
+          const f = oiNow / windowOi;
+          for (let b = 0; b < bins; b++) {
+            liveLong[b] *= f;
+            liveShort[b] *= f;
+          }
         }
-      }
 
-      // 3. Open interest rose -> new positions at this bar's price.
-      if (oiNow > oiPrev) {
-        const notional = (oiNow - oiPrev) * c.c;
-        let longShare = 0.5;
-        if (cfg.model === 'directional' && prev.c > 0) {
-          const ret = c.c / prev.c - 1;
-          longShare = Math.min(0.7, Math.max(0.3, 0.5 + ret * 20));
+        // 3. Net open interest rose -> new positions at the window's closing price.
+        if (oiNow > windowOi) {
+          const notional = (oiNow - windowOi) * c.c;
+          let longShare = 0.5;
+          if (cfg.model === 'directional' && windowPx > 0) {
+            const ret = c.c / windowPx - 1;
+            longShare = Math.min(0.7, Math.max(0.3, 0.5 + ret * 20));
+          }
+          for (const { lev, w } of LEVERAGE_TIERS) {
+            liveLong[binOf(c.c * (1 - 1 / lev + cfg.mm))] += notional * w * longShare;
+            liveShort[binOf(c.c * (1 + 1 / lev - cfg.mm))] += notional * w * (1 - longShare);
+          }
         }
-        for (const { lev, w } of LEVERAGE_TIERS) {
-          liveLong[binOf(c.c * (1 - 1 / lev + cfg.mm))] += notional * w * longShare;
-          liveShort[binOf(c.c * (1 + 1 / lev - cfg.mm))] += notional * w * (1 - longShare);
-        }
+        windowOi = oiNow;
+        windowPx = c.c;
       }
     }
 

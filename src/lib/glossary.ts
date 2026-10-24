@@ -1,7 +1,7 @@
 /** One-paragraph explanations shown from the ⓘ on each panel, written for a trader who has not met the term before. */
 export const GLOSSARY: Record<string, { what: string; read: string }> = {
   heatmap: {
-    what: 'Where leveraged positions would be force-closed if price got there. Each horizontal band is an estimated pile of liquidation orders; brighter means bigger. It is built from changes in open interest and typical leverage, not from anyone\'s real positions.',
+    what: 'Where leveraged positions would be force-closed if price got there. Each horizontal band is an estimated pile of liquidation orders; brighter means bigger. It is built from changes in open interest and typical leverage (25×, 50× and 100×, settled about 48 times per window: every 30 minutes on 1D), not from anyone\'s real positions.',
     read: 'Bright bands act like magnets and like fuel: price often runs toward them, and when it arrives the forced orders push it through. Bands above price are shorts at risk, bands below are longs. Dots are liquidations that actually happened.',
   },
   ratio: {

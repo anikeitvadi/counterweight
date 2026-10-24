@@ -87,7 +87,7 @@ export function LiqHeatmap(p: HeatmapPanelProps) {
           </div>
           <label className="slider" title="Hide levels weaker than this share of the strongest">
             <span>Threshold {p.threshold.toFixed(2)}</span>
-            <input type="range" min={0} max={0.6} step={0.05} value={p.threshold} onChange={(e) => p.onThreshold(parseFloat(e.target.value))} />
+            <input type="range" min={0} max={0.5} step={0.05} value={p.threshold} onChange={(e) => p.onThreshold(parseFloat(e.target.value))} />
           </label>
         </>
       }

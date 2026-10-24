@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { Candle } from '../api/delta';
 import { computeHeatmap, type Heatmap, type LiqModel } from '../lib/liquidation';
 
-const CFG = { mm: 0.005, bins: 400 };
+// Bands ~0.1% of price tall; open interest settles as ~48 net entries per window (30 min on 1D, 90 min on 3D, …),
+// so the map has the same density whatever the range instead of one entry per tick.
+const CFG = { mm: 0.005, bins: 400, binPct: 0.001 };
+const ENTRIES_PER_WINDOW = 48;
+const entryBarsFor = (price: Candle[]): number => Math.max(1, Math.round(price.length / ENTRIES_PER_WINDOW));
 
 /** Runs the estimator in a Web Worker (falls back to the main thread where workers are unavailable). */
 export function useHeatmap(price: Candle[], oi: Candle[], model: LiqModel): { heatmap: Heatmap | null; computing: boolean } {
@@ -31,7 +35,7 @@ export function useHeatmap(price: Candle[], oi: Candle[], model: LiqModel): { he
     const id = ++seq.current;
     const w = worker.current;
     if (!w) {
-      setHeatmap(computeHeatmap(price, oi, { model, ...CFG }));
+      setHeatmap(computeHeatmap(price, oi, { model, ...CFG, entryBars: entryBarsFor(price) }));
       return;
     }
     setComputing(true);
@@ -42,7 +46,7 @@ export function useHeatmap(price: Candle[], oi: Candle[], model: LiqModel): { he
       w.removeEventListener('message', onMsg);
     };
     w.addEventListener('message', onMsg);
-    w.postMessage({ id, price, oi, cfg: { model, ...CFG } });
+    w.postMessage({ id, price, oi, cfg: { model, ...CFG, entryBars: entryBarsFor(price) } });
     return () => w.removeEventListener('message', onMsg);
   }, [price, oi, model]);
 

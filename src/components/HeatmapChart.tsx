@@ -77,8 +77,8 @@ function buildGrid(h: Heatmap, side: LiqSide): HeatmapGrid {
     if (k.l < tLo) tLo = k.l;
     if (k.h > tHi) tHi = k.h;
   }
-  // traded range + 6% each side: the 10×–25× clusters stay in view, candles fill the pane
-  return { bins: h.bins, priceMin: h.priceMin, binSize: h.binSize, values, cap, lo, hi, viewLo: tLo * 0.94, viewHi: tHi * 1.06 };
+  // traded range + ~4.7% each side: the 25× bands (4% + margin + band height) stay in view, candles fill the middle
+  return { bins: h.bins, priceMin: h.priceMin, binSize: h.binSize, values, cap, lo, hi, viewLo: tLo * 0.953, viewHi: tHi * 1.047 };
 }
 
 export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, height, windowKey, up, down, liquidations, showLiquidations, walls, showWalls }: Props) {
@@ -170,7 +170,7 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     });
     closeLine.current = ln;
     const hp = new HeatmapPrimitive();
-    hp.setOptions({ palette, theme, threshold, gamma: 1.5 });
+    hp.setOptions({ palette, theme, threshold, gamma: 1 });
     const d = new LiquidationDots();
     const w = new OptionsWalls();
     cs.attachPrimitive(hp);

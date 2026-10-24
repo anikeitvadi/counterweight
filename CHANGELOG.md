@@ -12,6 +12,9 @@
   carries across assets and venues and every session opens on the nearest daily expiry.
 - **Multi-asset widget.** The widget can show BTC, ETH and gold at once, stacked in a column (portrait) or side
   by side (landscape); the asset buttons toggle membership and both choices are remembered.
+- **Cleaner liquidation heatmap.** Three leverage tiers (25×, 50×, 100×) instead of six, bands a fixed ~0.1% of
+  price tall, open interest settled as ~48 net entries per window rather than one per tick, a linear colour ramp
+  from a flat field, and a tighter price axis. The default window is now 1D.
 - Windows build is pinned to x64 (`electron-builder --win zip --x64`); the host's arm64 was leaking in.
 - Repository: MIT licence, CI, architecture notes, screenshots.
 

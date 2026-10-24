@@ -79,8 +79,9 @@ mouse wheel zooms only after a click on the chart (⌘/Ctrl + wheel always works
 
 `#widget` (or `w`) renders one `WidgetCard` per selected asset: the ratio hero plus six tiles (perp price,
 funding, max pain, IV rank, nearest liquidation cluster above and below). The primary asset reuses the app's
-data feed; each extra asset mounts a `LiveWidgetCard` with its own `useMarketData`. Alerts and the tab title
-follow the primary asset.
+data feed; each extra asset mounts a `LiveWidgetCard` with its own `useMarketData`. Cards stack in portrait
+or sit in one CSS-grid row per asset in landscape (`.wgrid`, `--n` columns of at least 380px). Alerts and the
+tab title follow the primary asset.
 
 ## Desktop shell (`electron/main.cjs`)
 

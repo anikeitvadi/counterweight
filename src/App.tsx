@@ -70,6 +70,8 @@ export function App() {
   const [venuePref, setVenuePref] = useLocalStorage<VenuePref>('cd.venue', 'delta');
   // Extra assets the widget shows beside the primary one.
   const [extraAssets, setExtraAssets] = useLocalStorage<Asset[]>('cd.widgetAssets', []);
+  // Several widget assets stacked (portrait, a side column) or side by side (landscape, a strip above the charts).
+  const [widgetLayout, setWidgetLayout] = useLocalStorage<'portrait' | 'landscape'>('cd.widgetLayout', 'portrait');
   const [side, setSide] = useLocalStorage<LiqSide>('cd.side', 'all');
   const [model, setModel] = useLocalStorage<LiqModel>('cd.model', 'balanced');
   const [palette, setPalette] = useLocalStorage<Palette>('cd.palette', 'viridis');
@@ -137,6 +139,7 @@ export function App() {
       } else if (e.key === 't') setTheme((v) => (v === 'dark' ? 'light' : 'dark'));
       else if (e.key === 'c') setCompact((v) => !v);
       else if (e.key === 'w') toggleWidget();
+      else if (e.key === 'l') setWidgetLayout((v) => (v === 'portrait' ? 'landscape' : 'portrait'));
       else if (e.key === '?') setHelpOpen((v) => !v);
       else return;
       e.preventDefault();
@@ -144,7 +147,7 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setAsset, setRange, setTheme, setCompact, widget, asset, extraAssets]);
+  }, [setAsset, setRange, setTheme, setCompact, setWidgetLayout, widget, asset, extraAssets]);
 
   // Follow the URL hash too, so /#widget works on an already-open page and the back button restores the desk.
   useEffect(() => {
@@ -355,7 +358,7 @@ export function App() {
   };
 
   return (
-    <div className={`app${compact ? ' compact' : ''}${widget ? ' widget' : ''}`}>
+    <div className={`app${compact ? ' compact' : ''}${widget ? ` widget ${widgetLayout}` : ''}`}>
       <header className="hdr">
         <span className="brand">CryptoDesk</span>
         <span className={`pill ${data.health}`} title={statusTitle} aria-live="polite">
@@ -378,6 +381,16 @@ export function App() {
                 {ASSET_NAME[a]}
               </button>
             ))}
+          </div>
+        )}
+        {widget && shownAssets.length > 1 && (
+          <div className="seg" role="group" aria-label="Widget layout" title="Stack the assets (portrait) or lay them side by side (landscape) · l">
+            <button aria-pressed={widgetLayout === 'portrait'} className={widgetLayout === 'portrait' ? 'on' : ''} onClick={() => setWidgetLayout('portrait')} aria-label="Portrait">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="7" y="3" width="10" height="18" rx="1.5" /><path d="M7 12h10" /></svg>
+            </button>
+            <button aria-pressed={widgetLayout === 'landscape'} className={widgetLayout === 'landscape' ? 'on' : ''} onClick={() => setWidgetLayout('landscape')} aria-label="Landscape">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="7" width="18" height="10" rx="1.5" /><path d="M12 7v10" /></svg>
+            </button>
           </div>
         )}
         <select className="sel" value={selected ? codes.get(selected.expiryMs) ?? 'all' : 'all'} onChange={(e) => setExpirySel(e.target.value)} aria-label="Expiry" title="Expiry scope for the ratio and the strike charts. D1 = nearest daily, W = weekly, M = monthly (Delta's codes)">
@@ -462,6 +475,7 @@ export function App() {
               <li><span>Theme</span><span className="kbd">t</span></li>
               <li><span>Compact layout</span><span className="kbd">c</span></li>
               <li><span>Widget mode</span><span className="kbd">w</span></li>
+              <li><span>Widget: portrait / landscape</span><span className="kbd">l</span></li>
               <li><span>This help</span><span className="kbd">?</span></li>
             </ul>
             <p className="note">Drag the ⋮⋮ grip on any panel to reorder. Each panel's ⓘ explains what it shows and how to read it.</p>
@@ -477,13 +491,15 @@ export function App() {
       )}
 
       {widget ? (
-        shownAssets.map((a) =>
-          a === asset ? (
-            <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} named={shownAssets.length > 1} />
-          ) : (
-            <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} named />
-          ),
-        )
+        <div className={`wgrid ${widgetLayout}`} style={{ '--n': shownAssets.length } as React.CSSProperties}>
+          {shownAssets.map((a) =>
+            a === asset ? (
+              <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} named={shownAssets.length > 1} />
+            ) : (
+              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} named />
+            ),
+          )}
+        </div>
       ) : (
         <div className="grid">{order.map(panelFor)}</div>
       )}

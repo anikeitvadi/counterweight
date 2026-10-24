@@ -35,13 +35,14 @@ strikes and where open interest moved over ~24h · **Alerts**: price near a larg
 flip crossed, extreme funding, single large liquidation, with sound and desktop notifications.
 
 **Widget mode** (`w`, the ⊞ button, or `/#widget`) keeps just the ratio and six key numbers per asset in a
-~440px column, and can show BTC, ETH and gold at once. The tab title carries price and ratio.
+~440px column, and can show BTC, ETH and gold at once, stacked (portrait) or side by side (landscape, `l`).
+The tab title carries price and ratio.
 
 <p align="center"><img src="docs/screenshots/widget.png" width="420" alt="Widget mode with BTC and ETH"></p>
 
 Every chart has a table view and an ⓘ that explains what it shows and how to read it. Panels can be switched
 off and dragged into any order; layout, asset, expiry venue and theme are remembered. Keyboard: `1 2 3`
-assets, `[ ]` heatmap window, `t` theme, `c` compact, `w` widget, `?` help.
+assets, `[ ]` heatmap window, `t` theme, `c` compact, `w` widget, `l` widget layout, `?` help.
 
 ## Data sources
 

@@ -344,5 +344,11 @@ table.tv td:first-child { color: var(--ink); }
 :root[data-theme='light'] .lwc-readout { background: rgba(255,255,255,0.85); color: #0b0b0b; }
 :root[data-theme='light'] .lwc-readout .t, :root[data-theme='light'] .lwc-readout .muted { color: #52514e; }
 
-/* Widget cards: one block per asset when several are shown */
-.wcard + .wcard { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+/* Widget cards: one block per asset when several are shown. Portrait stacks them in a column;
+   landscape puts them side by side (one column per asset, at least 380px each, scrolls if the window is narrower). */
+.wgrid.portrait .wcard + .wcard { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.app.widget.landscape { max-width: none; }
+.wgrid.landscape { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(380px, 1fr)); gap: 10px; align-items: start; overflow-x: auto; padding-bottom: 4px; }
+.wgrid.landscape .wcard { min-width: 0; }
+.hdr .seg svg { width: 14px; height: 14px; display: block; }
+.hdr .seg button[aria-label="Portrait"], .hdr .seg button[aria-label="Landscape"] { padding: 4px 7px; }

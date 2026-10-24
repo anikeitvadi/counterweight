@@ -15,8 +15,8 @@
     "app": "npm run build && electron .",
     "app:dev": "CRYPTODESK_DEV_URL=http://localhost:5180 electron .",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:win": "npm run build && electron-builder --win zip",
-    "dist:all": "npm run build && electron-builder --mac --win"
+    "dist:win": "npm run build && electron-builder --win zip --x64",
+    "dist:all": "npm run build && electron-builder --mac --win zip --x64"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",

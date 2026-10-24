@@ -10,8 +10,9 @@
   Deribit remains one click away for BTC and ETH.
 - **D1 by default.** The expiry scope is remembered as Delta's code (D1, W1, M2…) rather than a date, so it
   carries across assets and venues and every session opens on the nearest daily expiry.
-- **Multi-asset widget.** The widget can show BTC, ETH and gold at once; the asset buttons toggle membership
-  and the choice is remembered.
+- **Multi-asset widget.** The widget can show BTC, ETH and gold at once, stacked in a column (portrait) or side
+  by side (landscape); the asset buttons toggle membership and both choices are remembered.
+- Windows build is pinned to x64 (`electron-builder --win zip --x64`); the host's arm64 was leaking in.
 - Repository: MIT licence, CI, architecture notes, screenshots.
 
 ## 0.1.0 — 2026-10-24

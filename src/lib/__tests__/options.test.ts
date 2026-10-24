@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OptionTicker } from '../../api/delta';
-import { atmIv, expectedMove, expiryCodes, gammaExposure, groupByExpiry, maxPain, oiByStrike, putCallRatio, realizedVol, skew25 } from '../options';
+import { atmIv, expectedMove, expiryCodes, fmtLean, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25 } from '../options';
 
 const DAY = 86_400_000;
 const now = Date.UTC(2026, 9, 24, 12);
@@ -121,5 +121,33 @@ describe('options analytics', () => {
     ];
     const codes = expiryCodes(e, Date.UTC(2026, 9, 24, 12));
     expect([...codes.values()]).toEqual(['D1', 'D2', 'D3', 'W1', 'W2', 'W3', 'M2', 'M3']);
+  });
+});
+
+describe('lean (conviction ratio)', () => {
+  it('normalises the smaller side to 1 and names it', () => {
+    expect(lean(81.4, 190.2)).toEqual({ ratio: 190.2 / 81.4, fewer: 'puts' });
+    expect(lean(120, 84)).toEqual({ ratio: 120 / 84, fewer: 'calls' });
+    expect(lean(5, 5)).toEqual({ ratio: 1, fewer: 'even' });
+    expect(lean(0, 0)).toBeNull();
+    expect(lean(0, 10)).toEqual({ ratio: Infinity, fewer: 'puts' });
+  });
+  it('formats as 1 : x', () => {
+    expect(fmtLean({ ratio: 2.336, fewer: 'puts' })).toBe('1 : 2.34');
+    expect(fmtLean({ ratio: 2.336, fewer: 'puts' }, 1)).toBe('1 : 2.3');
+    expect(fmtLean({ ratio: Infinity, fewer: 'calls' })).toBe('1 : ∞');
+  });
+});
+
+describe('resolveExpiry', () => {
+  const now = Date.UTC(2026, 9, 24, 12);
+  const chain = [1, 2, 7].map((d) => opt({ type: 'call', strike: 1, expiryMs: now + d * DAY }));
+  const groups = groupByExpiry(chain, now);
+  const codes = expiryCodes(groups.map((g) => g.expiryMs), now);
+  it('returns null for all, the coded expiry when present, the front otherwise', () => {
+    expect(resolveExpiry(groups, codes, 'all')).toBeNull();
+    expect(resolveExpiry(groups, codes, 'D2')?.expiryMs).toBe(now + 2 * DAY);
+    expect(resolveExpiry(groups, codes, 'M9')?.expiryMs).toBe(now + DAY);
+    expect(resolveExpiry([], codes, 'D1')).toBeNull();
   });
 });

@@ -262,3 +262,38 @@ export function expiryCodes(expiries: number[], nowMs = Date.now()): Map<number,
   }
   return out;
 }
+
+/**
+ * Conviction view of put vs call open interest: the smaller side is normalised to 1 and the
+ * larger side is the ratio, so `1 : 2.3` reads as "2.3× as many of the bigger side".
+ * `fewer` names the thin side (the direction a contrarian would trade): fewer puts = crowd is
+ * long, so lean short; fewer calls = crowd is hedged, so lean long.
+ */
+export interface Lean {
+  /** Larger side ÷ smaller side, always ≥ 1 (1 when equal or when either side is zero-sized and the other isn't finite). */
+  ratio: number;
+  fewer: 'puts' | 'calls' | 'even';
+}
+export function lean(puts: number, calls: number): Lean | null {
+  if (!(puts > 0) && !(calls > 0)) return null;
+  if (puts === calls) return { ratio: 1, fewer: 'even' };
+  const fewer = puts < calls ? 'puts' : 'calls';
+  const small = Math.min(puts, calls);
+  const big = Math.max(puts, calls);
+  return { ratio: small > 0 ? big / small : Infinity, fewer };
+}
+/** `1 : 2.3` (or `1 : ∞` when one side is empty). */
+export function fmtLean(l: Lean, digits = 2): string {
+  return `1 : ${Number.isFinite(l.ratio) ? l.ratio.toFixed(digits) : '∞'}`;
+}
+
+/**
+ * Header expiry selection, kept as Delta's code ('D1', 'W2', …) or 'all' so it carries across
+ * assets and venues: each chain resolves the code against its own expiries. A code the chain does
+ * not have falls back to the nearest expiry, so "D1" always means "the front".
+ */
+export type ExpirySel = 'all' | string;
+export function resolveExpiry(groups: ExpiryGroup[], codes: Map<number, string>, sel: ExpirySel): ExpiryGroup | null {
+  if (sel === 'all') return null;
+  return groups.find((g) => codes.get(g.expiryMs) === sel) ?? groups[0] ?? null;
+}

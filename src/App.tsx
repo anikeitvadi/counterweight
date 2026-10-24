@@ -10,19 +10,21 @@ import { LiqHeatmap } from './components/LiqHeatmap';
 import { OiByStrike } from './components/OiByStrike';
 import { RatioPanel } from './components/RatioPanel';
 import { StatTiles } from './components/StatTiles';
+import { ASSET_NAME, LiveWidgetCard, UNIT, WidgetCard } from './components/WidgetCard';
 import { TermStructure } from './components/TermStructure';
 import { useAlerts } from './hooks/useAlerts';
 import { useHeatmap } from './hooks/useHeatmap';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { RANGES, useMarketData, type Health, type RangeKey, type VenuePref } from './hooks/useMarketData';
 import { DEFAULT_RULES, type AlertInput, type AlertRules } from './lib/alerts';
-import { fmtDateShort, fmtPct, fmtPrice, fmtUsd } from './lib/format';
+import { fmtDateShort, fmtPrice } from './lib/format';
 import { GLOSSARY } from './lib/glossary';
 import type { Palette } from './lib/heatmapSeries';
 import { ivRank } from './lib/ivrank';
 import { currentClusters, type LiqModel, type LiqSide } from './lib/liquidation';
 import {
-  atmIv, expectedMove, expiryCodes, gammaExposure, groupByExpiry, maxPain, oiByStrike, putCallRatio, realizedVol, skew25, smile, termStructure,
+  atmIv, expectedMove, expiryCodes, fmtLean, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25, smile, termStructure,
+  type ExpirySel,
 } from './lib/options';
 
 type PanelKey = 'tiles' | 'ratio' | 'heatmap' | 'oi' | 'gex' | 'smile' | 'term' | 'flow' | 'alerts';
@@ -40,7 +42,6 @@ const PANELS: Array<{ key: PanelKey; label: string }> = [
 const ALL_ON: Record<PanelKey, boolean> = { tiles: true, ratio: true, heatmap: true, oi: true, gex: true, smile: true, term: true, flow: true, alerts: false };
 const DEFAULT_ORDER: PanelKey[] = ['ratio', 'tiles', 'heatmap', 'oi', 'gex', 'smile', 'term', 'flow', 'alerts'];
 const hashWidget = () => typeof location !== 'undefined' && location.hash.replace('#', '') === 'widget';
-const UNIT: Record<Asset, string> = { BTC: 'BTC', ETH: 'ETH', XAUT: 'oz' };
 // Candle/series colours as hex: the canvas chart cannot resolve CSS variables.
 const SERIES = { dark: { up: '#089981', down: '#f23645' }, light: { up: '#089981', down: '#f23645' } };
 const HEALTH_LABEL: Record<Health, string> = { live: 'Live', polling: 'Polling', stale: 'Stale', offline: 'Offline', error: 'Error' };
@@ -65,7 +66,10 @@ export function App() {
   const [compact, setCompact] = useLocalStorage<boolean>('cd.compact', false);
   const [storedWidget, setWidget] = useLocalStorage<boolean>('cd.widget', false);
   const [widget, setWidgetNow] = useState<boolean>(() => hashWidget() || storedWidget);
-  const [venuePref, setVenuePref] = useLocalStorage<VenuePref>('cd.venue', 'deribit');
+  // Delta by default so the numbers match Delta's own app; Deribit is the deeper market, one click away.
+  const [venuePref, setVenuePref] = useLocalStorage<VenuePref>('cd.venue', 'delta');
+  // Extra assets the widget shows beside the primary one.
+  const [extraAssets, setExtraAssets] = useLocalStorage<Asset[]>('cd.widgetAssets', []);
   const [side, setSide] = useLocalStorage<LiqSide>('cd.side', 'all');
   const [model, setModel] = useLocalStorage<LiqModel>('cd.model', 'balanced');
   const [palette, setPalette] = useLocalStorage<Palette>('cd.palette', 'viridis');
@@ -75,7 +79,8 @@ export function App() {
   const [oiUsd, setOiUsd] = useLocalStorage<boolean>('cd.oiUsd', true);
   const [oiMetric, setOiMetric] = useLocalStorage<'oi' | 'vol'>('cd.oiMetric', 'oi');
   const [rules, setRules] = useLocalStorage<AlertRules>('cd.alerts.rules', DEFAULT_RULES);
-  const [expiry, setExpiry] = useState<number | 'all'>('all');
+  // Expiry scope as Delta's code, so D1 stays D1 across assets and venues; every session opens on the front daily.
+  const [expirySel, setExpirySel] = useState<ExpirySel>('D1');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dragId, setDragId] = useState<PanelKey | null>(null);
@@ -123,8 +128,7 @@ export function App() {
       if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === '1' || e.key === '2' || e.key === '3') {
-        setAsset(ASSETS[parseInt(e.key, 10) - 1]);
-        setExpiry('all');
+        pickAsset(ASSETS[parseInt(e.key, 10) - 1]);
       } else if (e.key === '[' || e.key === ']') {
         setRange((r) => {
           const i = RANGE_KEYS.indexOf(r);
@@ -140,7 +144,7 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setAsset, setRange, setTheme, setCompact]);
+  }, [setAsset, setRange, setTheme, setCompact, widget, asset, extraAssets]);
 
   // Follow the URL hash too, so /#widget works on an already-open page and the back button restores the desk.
   useEffect(() => {
@@ -148,6 +152,20 @@ export function App() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  // Widget: the assets shown are the primary plus any extras; clicking toggles membership and the
+  // primary (alerts, tab title) hands over to the first remaining asset. Desk: plain single select.
+  const shownAssets = ASSETS.filter((a) => a === asset || extraAssets.includes(a));
+  const pickAsset = (a: Asset) => {
+    if (!widget) return setAsset(a);
+    if (a === asset) {
+      const rest = ASSETS.filter((x) => x !== a && extraAssets.includes(x));
+      if (rest.length === 0) return;
+      setAsset(rest[0]);
+      setExtraAssets(rest.slice(1));
+    } else if (extraAssets.includes(a)) setExtraAssets(extraAssets.filter((x) => x !== a));
+    else setExtraAssets(ASSETS.filter((x) => x !== asset && (x === a || extraAssets.includes(x))));
+  };
 
   const toggleWidget = () => {
     setWidgetNow((v) => {
@@ -175,7 +193,7 @@ export function App() {
 
   const groups = useMemo(() => groupByExpiry(data.options), [data.options]);
   const codes = useMemo(() => expiryCodes(groups.map((g) => g.expiryMs)), [groups]);
-  const selected = expiry === 'all' ? null : groups.find((g) => g.expiryMs === expiry) ?? null;
+  const selected = resolveExpiry(groups, codes, expirySel);
   const front = groups[0] ?? null;
   const smileGroup = selected ?? front;
   const scoped = useMemo(() => (selected ? [...selected.calls, ...selected.puts] : data.options), [selected, data.options]);
@@ -213,7 +231,7 @@ export function App() {
   const alertInput = useMemo<AlertInput | null>(() => {
     if (!(perpPrice > 0)) return null;
     return {
-      asset: asset === 'XAUT' ? 'Gold' : asset,
+      asset: ASSET_NAME[asset],
       spot: perpPrice,
       clusters: heatmap ? currentClusters(heatmap, perpPrice, 6) : [],
       maxPain: frontMaxPain,
@@ -226,8 +244,8 @@ export function App() {
   const alerts = useAlerts(rules, alertInput);
 
   useEffect(() => {
-    const name = asset === 'XAUT' ? 'Gold' : asset;
-    document.title = pcr && perpPrice > 0 ? `${name} ${fmtPrice(perpPrice)} · P/C ${pcr.oi.toFixed(2)} — CryptoDesk` : 'CryptoDesk';
+    const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
+    document.title = l && perpPrice > 0 ? `${ASSET_NAME[asset]} ${fmtPrice(perpPrice)} · ${l.fewer === 'calls' ? 'C:P' : 'P:C'} ${fmtLean(l, 1)} — CryptoDesk` : 'CryptoDesk';
   }, [asset, pcr, perpPrice]);
 
   const lastGood = Math.max(data.updatedAt ?? 0, data.tickAt ?? 0) || null;
@@ -336,27 +354,6 @@ export function App() {
     }
   };
 
-  // Widget: the ratio first, then only the numbers that change a decision.
-  const nearest = heatmap && perpPrice > 0 ? currentClusters(heatmap, perpPrice, 1) : [];
-  const above = nearest.find((c) => c.side === 'short') ?? null;
-  const below = nearest.find((c) => c.side === 'long') ?? null;
-  const chg = data.perp && data.perp.open24h > 0 ? ((data.perp.last - data.perp.open24h) / data.perp.open24h) * 100 : null;
-  const WidgetBody = () => (
-    <>
-      <ErrorBoundary title="Put / call ratio">
-        <RatioPanel options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} />
-      </ErrorBoundary>
-      <div className="widget-strip tiles">
-        <div className="tile"><div className="lbl">{asset === 'XAUT' ? 'Gold' : asset} perp</div><div className="val">{perpPrice > 0 ? fmtPrice(perpPrice) : '—'}</div>{chg !== null && <div className={`sub ${chg >= 0 ? 'up' : 'down'}`}>{fmtPct(chg, 2, true)} 24h</div>}</div>
-        <div className="tile"><div className="lbl">Funding (8h)</div><div className="val">{data.perp ? `${data.perp.fundingRate >= 0 ? '+' : ''}${(data.perp.fundingRate * 100).toFixed(4)}%` : '—'}</div><div className="sub">{data.perp ? `${fmtPct(data.perp.fundingRate * 100 * 3 * 365, 0, true)} annualised` : ''}</div></div>
-        <div className="tile"><div className="lbl">Max pain · {front ? fmtDateShort(front.expiryMs) : ''}</div><div className="val">{frontMaxPain !== null ? fmtPrice(frontMaxPain) : '—'}</div>{frontMaxPain !== null && spot > 0 && <div className="sub">{fmtPct(((frontMaxPain - spot) / spot) * 100, 2, true)} from spot</div>}</div>
-        <div className="tile"><div className="lbl">IV rank · 1y</div><div className="val">{rank ? Math.round(rank.rank * 100) : '—'}</div><div className="sub">{rank ? `DVOL ${rank.current.toFixed(1)} · ${rank.rank > 0.6 ? 'rich' : rank.rank < 0.3 ? 'cheap' : 'mid'}` : frontIv !== null ? `ATM IV ${fmtPct(frontIv * 100, 0)}` : ''}</div></div>
-        <div className="tile"><div className="lbl">Liq. cluster above</div><div className="val">{above ? fmtPrice(above.price) : '—'}</div>{above && <div className="sub">{fmtPct(above.distPct, 1, true)} · {fmtUsd(above.usd)}</div>}</div>
-        <div className="tile"><div className="lbl">Liq. cluster below</div><div className="val">{below ? fmtPrice(below.price) : '—'}</div>{below && <div className="sub">{fmtPct(below.distPct, 1, true)} · {fmtUsd(below.usd)}</div>}</div>
-      </div>
-    </>
-  );
-
   return (
     <div className={`app${compact ? ' compact' : ''}${widget ? ' widget' : ''}`}>
       <header className="hdr">
@@ -366,25 +363,35 @@ export function App() {
           {HEALTH_LABEL[data.health]}
           {lastGood && <span className="age"> · {ageText(lastGood, now)}</span>}
         </span>
-        <div className="seg" role="tablist" aria-label="Asset">
-          {ASSETS.map((a) => (
-            <button key={a} role="tab" aria-selected={asset === a} className={asset === a ? 'on' : ''} onClick={() => { setAsset(a); setExpiry('all'); }}>
-              {a === 'XAUT' ? 'Gold' : a}
-            </button>
-          ))}
-        </div>
-        <select className="sel" value={expiry} onChange={(e) => setExpiry(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="Expiry">
+        {widget ? (
+          <div className="seg" role="group" aria-label="Assets shown" title="Show several assets at once; the first one drives alerts and the tab title">
+            {ASSETS.map((a) => (
+              <button key={a} aria-pressed={shownAssets.includes(a)} className={shownAssets.includes(a) ? 'on' : ''} onClick={() => pickAsset(a)}>
+                {ASSET_NAME[a]}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="seg" role="tablist" aria-label="Asset">
+            {ASSETS.map((a) => (
+              <button key={a} role="tab" aria-selected={asset === a} className={asset === a ? 'on' : ''} onClick={() => pickAsset(a)}>
+                {ASSET_NAME[a]}
+              </button>
+            ))}
+          </div>
+        )}
+        <select className="sel" value={selected ? codes.get(selected.expiryMs) ?? 'all' : 'all'} onChange={(e) => setExpirySel(e.target.value)} aria-label="Expiry" title="Expiry scope for the ratio and the strike charts. D1 = nearest daily, W = weekly, M = monthly (Delta's codes)">
           <option value="all">All expiries</option>
           {groups.map((g) => (
-            <option key={g.expiryMs} value={g.expiryMs}>
+            <option key={g.expiryMs} value={codes.get(g.expiryMs)}>
               {codes.get(g.expiryMs)} · {fmtDateShort(g.expiryMs)} · {g.dte < 1 ? `${Math.round(g.dte * 24)}h` : `${Math.round(g.dte)}d`}
             </option>
           ))}
         </select>
         {asset !== 'XAUT' && (
           <div className="seg" role="group" aria-label="Options venue" title="Which exchange's option chain to analyse. Delta matches the numbers in Delta's own app; Deribit is the deepest market.">
-            {(['deribit', 'delta'] as VenuePref[]).map((v) => (
-              <button key={v} className={venuePref === v ? 'on' : ''} onClick={() => { setVenuePref(v); setExpiry('all'); }}>{v === 'deribit' ? 'Deribit' : 'Delta'}</button>
+            {(['delta', 'deribit'] as VenuePref[]).map((v) => (
+              <button key={v} className={venuePref === v ? 'on' : ''} onClick={() => setVenuePref(v)}>{v === 'deribit' ? 'Deribit' : 'Delta'}</button>
             ))}
           </div>
         )}
@@ -450,7 +457,7 @@ export function App() {
           <div ref={popRef} className="pop" role="dialog" aria-label="Keyboard shortcuts" style={{ top: 44, right: 10, left: 'auto' }}>
             <h4>Keyboard</h4>
             <ul className="help-list">
-              <li><span>BTC / ETH / Gold</span><span><span className="kbd">1</span> <span className="kbd">2</span> <span className="kbd">3</span></span></li>
+              <li><span>BTC / ETH / Gold (widget: show / hide)</span><span><span className="kbd">1</span> <span className="kbd">2</span> <span className="kbd">3</span></span></li>
               <li><span>Shorter / longer window</span><span><span className="kbd">[</span> <span className="kbd">]</span></span></li>
               <li><span>Theme</span><span className="kbd">t</span></li>
               <li><span>Compact layout</span><span className="kbd">c</span></li>
@@ -470,19 +477,22 @@ export function App() {
       )}
 
       {widget ? (
-        <WidgetBody />
+        shownAssets.map((a) =>
+          a === asset ? (
+            <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} named={shownAssets.length > 1} />
+          ) : (
+            <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} named />
+          ),
+        )
       ) : (
-      <>
-      <div className="grid">{order.map(panelFor)}</div>
-      </>
+        <div className="grid">{order.map(panelFor)}</div>
       )}
-
 
       <Toasts toasts={alerts.toasts} onDismiss={alerts.dismiss} />
 
       <p className="footer">
-        Data: options chain from <a href="https://www.deribit.com" target="_blank" rel="noreferrer">Deribit</a> (BTC, ETH) and{' '}
-        <a href="https://www.delta.exchange" target="_blank" rel="noreferrer">Delta Exchange</a> (gold); perp price, open interest, funding and liquidations from{' '}
+        Data: options chain from <a href="https://www.delta.exchange" target="_blank" rel="noreferrer">Delta Exchange</a> (default; gold is Delta only) or{' '}
+        <a href="https://www.deribit.com" target="_blank" rel="noreferrer">Deribit</a> (BTC, ETH, header toggle); perp price, open interest, funding and liquidations from{' '}
         <a href="https://www.okx.com" target="_blank" rel="noreferrer">OKX</a> (streamed over websocket; candles and OI history refreshed every 60s); IV rank from Deribit's DVOL.
         Liquidation levels are estimates derived from open-interest changes and assumed leverage tiers (10×–100×), not confirmed positions. Gamma exposure assumes dealers are long calls and short puts.
       </p>

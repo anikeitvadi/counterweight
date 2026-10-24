@@ -2,7 +2,8 @@ import type { Candle } from '../api/delta';
 import type { PerpState } from '../api/okx';
 import { fmtPct, fmtPrice, fmtUsd } from '../lib/format';
 import type { IvRank } from '../lib/ivrank';
-import type { Pcr } from '../lib/options';
+import { fmtLean, lean, type Pcr } from '../lib/options';
+import { leanOrder, leanTone } from './RatioPanel';
 
 interface Props {
   perp: PerpState | null;
@@ -60,6 +61,7 @@ export function StatTiles(p: Props) {
   const perp = p.perp;
   const chg = perp && perp.open24h > 0 ? ((perp.last - perp.open24h) / perp.open24h) * 100 : null;
   const fund = perp ? perp.fundingRate * 100 : null; // percent per 8h
+  const l = p.pcr ? lean(p.pcr.putOiUsd, p.pcr.callOiUsd) : null;
   const nextFund = perp && perp.nextFundingMs > 0 ? Math.max(0, Math.round((perp.nextFundingMs - Date.now()) / 60_000)) : null;
   const barsPerDay = Math.max(1, Math.round(86_400 / p.secPerBar));
   const spark = p.price.slice(-barsPerDay).map((c) => c.c);
@@ -88,9 +90,10 @@ export function StatTiles(p: Props) {
       />
       <Tile label="Perp volume 24h" value={perp && perp.last > 0 ? fmtUsd(perp.volCcy24h * perp.last) : '—'} sub={perp && perp.high24h > 0 ? `range ${fmtPrice(perp.low24h)} – ${fmtPrice(perp.high24h)}` : undefined} />
       <Tile
-        label={`Put / call · ${p.pcrScope}`}
-        value={p.pcr ? p.pcr.oi.toFixed(2) : '—'}
-        sub={p.pcr ? `by OI · ${p.pcr.volume.toFixed(2)} by vol` : undefined}
+        label={`${l ? leanOrder(l) : 'Put / call'} · ${p.pcrScope}`}
+        value={l ? fmtLean(l) : '—'}
+        sub={p.pcr ? `put/call ${p.pcr.oi.toFixed(2)} OI · ${p.pcr.volume.toFixed(2)} vol` : undefined}
+        cls={l ? { short: 'down', long: 'up', neutral: '' }[leanTone(l)] : undefined}
       />
       <Tile
         label={`Options OI · ${p.optionsVenue}`}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSETS, type Asset } from './api/delta';
 import { AlertsPanel, Toasts } from './components/AlertsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Panel } from './components/Panel';
 import { FlowPanel } from './components/FlowPanel';
 import { GexChart } from './components/GexChart';
 import { IvSmile } from './components/IvSmile';
@@ -26,7 +27,7 @@ import {
 
 type PanelKey = 'tiles' | 'ratio' | 'heatmap' | 'oi' | 'gex' | 'smile' | 'term' | 'flow' | 'alerts';
 const PANELS: Array<{ key: PanelKey; label: string }> = [
-  { key: 'tiles', label: 'Summary tiles' },
+  { key: 'tiles', label: 'Market snapshot' },
   { key: 'ratio', label: 'Put / call ratio' },
   { key: 'heatmap', label: 'Liquidation heatmap' },
   { key: 'oi', label: 'Open interest by strike + max pain' },
@@ -37,7 +38,7 @@ const PANELS: Array<{ key: PanelKey; label: string }> = [
   { key: 'alerts', label: 'Alert settings panel' },
 ];
 const ALL_ON: Record<PanelKey, boolean> = { tiles: true, ratio: true, heatmap: true, oi: true, gex: true, smile: true, term: true, flow: true, alerts: false };
-const DEFAULT_ORDER: PanelKey[] = ['ratio', 'heatmap', 'oi', 'gex', 'smile', 'term', 'flow', 'alerts'];
+const DEFAULT_ORDER: PanelKey[] = ['ratio', 'tiles', 'heatmap', 'oi', 'gex', 'smile', 'term', 'flow', 'alerts'];
 const hashWidget = () => typeof location !== 'undefined' && location.hash.replace('#', '') === 'widget';
 const UNIT: Record<Asset, string> = { BTC: 'BTC', ETH: 'ETH', XAUT: 'oz' };
 // Candle/series colours as hex: the canvas chart cannot resolve CSS variables.
@@ -248,6 +249,33 @@ export function App() {
   const panelFor = (key: PanelKey) => {
     if (!panels[key]) return null;
     switch (key) {
+      case 'tiles':
+        return (
+          <ErrorBoundary key={key} title="Market snapshot">
+            <Panel title="Market snapshot" sub={`${data.optionsVenue} options · OKX perp`} info={GLOSSARY.tiles} drag={dragProps(key)}>
+              <StatTiles
+                show
+                perp={data.perp}
+                venue="OKX"
+                oiChange6hUsd={data.oiChange6hUsd}
+                spot={spot}
+                price={data.price}
+                secPerBar={data.secPerBar}
+                pcr={pcr}
+                frontLabel={front ? fmtDateShort(front.expiryMs) : null}
+                pcrScope={selected ? `${codes.get(selected.expiryMs) ?? ''} ${fmtDateShort(selected.expiryMs)}` : 'all expiries'}
+                atmIv={frontIv}
+                realized={realized}
+                skew={frontSkew}
+                maxPain={frontMaxPain}
+                expectedMove={front && frontIv !== null && spot > 0 ? expectedMove(frontIv, front.dte, spot) : null}
+                ivRank={rank}
+                hasDvol={asset !== 'XAUT'}
+                optionsVenue={data.optionsVenue}
+              />
+            </Panel>
+          </ErrorBoundary>
+        );
       case 'ratio':
         return (
           <ErrorBoundary key={key} title="Put / call ratio">
@@ -445,32 +473,10 @@ export function App() {
         <WidgetBody />
       ) : (
       <>
-      <ErrorBoundary title="Summary">
-        <StatTiles
-          show={panels.tiles}
-          perp={data.perp}
-          venue="OKX"
-          oiChange6hUsd={data.oiChange6hUsd}
-          spot={spot}
-          price={data.price}
-          secPerBar={data.secPerBar}
-          pcr={pcr}
-          frontLabel={front ? fmtDateShort(front.expiryMs) : null}
-          pcrScope={selected ? `${codes.get(selected.expiryMs) ?? ''} ${fmtDateShort(selected.expiryMs)}` : 'all expiries'}
-          atmIv={frontIv}
-          realized={realized}
-          skew={frontSkew}
-          maxPain={frontMaxPain}
-          expectedMove={front && frontIv !== null && spot > 0 ? expectedMove(frontIv, front.dte, spot) : null}
-          ivRank={rank}
-          hasDvol={asset !== 'XAUT'}
-          optionsVenue={data.optionsVenue}
-        />
-      </ErrorBoundary>
-
       <div className="grid">{order.map(panelFor)}</div>
       </>
       )}
+
 
       <Toasts toasts={alerts.toasts} onDismiss={alerts.dismiss} />
 

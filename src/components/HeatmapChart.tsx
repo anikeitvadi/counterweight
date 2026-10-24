@@ -285,8 +285,6 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     }
   }, [spot, theme]);
 
-  const tipLeft = hover ? (hover.x > (box.current?.clientWidth ?? 0) - 240 ? hover.x - 230 : hover.x + 14) : 0;
-  const tipTop = hover ? Math.max(4, Math.min(hover.y - 10, height - 110)) : 0;
 
   return (
     <div className={`lwc${armed ? ' armed' : ''}`} style={{ height }}>
@@ -298,13 +296,11 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
       </div>
       {!armed && <div className="lwc-hint">click chart to enable wheel zoom · ⌘/Ctrl+wheel always works</div>}
       {hover && (
-        <div className="tip lwc-tip" style={{ left: tipLeft, top: tipTop }} role="status">
-          <div className="t">
-            {new Date(hover.timeSec * 1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · level {fmtPrice(hover.level)}
-          </div>
-          <div className="r"><i className="k" style={{ background: up }} /><b>{fmtUsd(hover.long)}</b><span>long liq. est.</span></div>
-          <div className="r"><i className="k" style={{ background: down }} /><b>{fmtUsd(hover.short)}</b><span>short liq. est.</span></div>
-          <div className="r"><b>{fmtPrice(hover.o)} → {fmtPrice(hover.c)}</b><span>H {fmtPrice(hover.h)} · L {fmtPrice(hover.l)}</span></div>
+        <div className="lwc-readout" role="status">
+          <span className="t">{new Date(hover.timeSec * 1000).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+          <span><i className="k" style={{ background: up }} /><b>{fmtUsd(hover.long)}</b> longs at {fmtPrice(hover.level)}</span>
+          <span><i className="k" style={{ background: down }} /><b>{fmtUsd(hover.short)}</b> shorts</span>
+          <span className="muted">O {fmtPrice(hover.o)} H {fmtPrice(hover.h)} L {fmtPrice(hover.l)} C {fmtPrice(hover.c)}</span>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 {
   "name": "cryptodesk",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -37,7 +37,16 @@
   },
   "main": "electron/main.cjs",
   "description": "Options analytics, put/call ratio and liquidation heatmap for BTC, ETH and gold",
-  "author": "CryptoDesk",
+  "author": "Anikeit Vadi",
+  "license": "MIT",
+  "homepage": "https://cryptodesk-anakeet.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anikeitvadi/cryptodesk.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "build": {
     "appId": "app.cryptodesk.desk",
     "productName": "CryptoDesk",

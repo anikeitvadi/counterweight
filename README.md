@@ -1,5 +1,7 @@
 # CryptoDesk
 
+Web: https://cryptodesk-anakeet.vercel.app · Desktop builds: GitHub Releases · Source: https://github.com/anikeitvadi/cryptodesk
+
 A small, single-page trading companion: options analytics and an estimated
 liquidation heatmap for BTC, ETH and gold. Options come from Delta Exchange's
 public API, perp price / open interest / funding from OKX's. No backend, no API keys.

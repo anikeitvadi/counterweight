@@ -1,0 +1,84 @@
+{
+  "name": "cryptodesk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "app": "npm run build && electron .",
+    "app:dev": "CRYPTODESK_DEV_URL=http://localhost:5180 electron .",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win zip",
+    "dist:all": "npm run build && electron-builder --mac --win"
+  },
+  "dependencies": {
+    "lightweight-charts": "^5.2.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^37.10.3",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^3.2.7"
+  },
+  "main": "electron/main.cjs",
+  "description": "Options analytics, put/call ratio and liquidation heatmap for BTC, ETH and gold",
+  "author": "CryptoDesk",
+  "build": {
+    "appId": "app.cryptodesk.desk",
+    "productName": "CryptoDesk",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "CryptoDesk-${version}-win-${arch}.${ext}"
+    },
+    "dmg": {
+      "artifactName": "CryptoDesk-${version}-${arch}.${ext}"
+    }
+  }
+}

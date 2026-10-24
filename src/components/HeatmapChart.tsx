@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CandlestickSeries, ColorType, CrosshairMode, LineStyle, createChart,
+  CandlestickSeries, ColorType, CrosshairMode, LineSeries, LineStyle, createChart,
   type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Liquidation } from '../api/okx';
 import { LiquidationDots, OptionsWalls } from '../lib/chartPrimitives';
 import { fmtPrice, fmtUsd } from '../lib/format';
-import { HeatmapSeriesView, type HeatmapGrid, type HeatmapOptions, type HeatmapPoint, type Palette } from '../lib/heatmapSeries';
+import { HeatmapPrimitive, type HeatmapGrid, type Palette } from '../lib/heatmapSeries';
 import type { Heatmap, LiqSide } from '../lib/liquidation';
 import type { StrikeOi } from '../lib/options';
 
@@ -43,8 +43,8 @@ interface Props {
 }
 
 const THEME = {
-  dark: { bg: '#1a1a19', text: '#898781', border: '#383835', cross: '#c3c2b7', label: '#383835', now: '#ffffff', ring: 'rgba(0,0,0,0.65)', wallText: '#e6e6e0' },
-  light: { bg: '#fcfcfb', text: '#898781', border: '#c3c2b7', cross: '#52514e', label: '#e1e0d9', now: '#0b0b0b', ring: 'rgba(255,255,255,0.8)', wallText: '#0b0b0b' },
+  dark: { bg: '#1a1a19', text: '#898781', border: '#383835', cross: '#c3c2b7', label: '#383835', now: '#ffffff', ring: 'rgba(0,0,0,0.65)', wallText: '#e6e6e0', line: 'rgba(255,255,255,0.55)' },
+  light: { bg: '#fcfcfb', text: '#898781', border: '#c3c2b7', cross: '#52514e', label: '#e1e0d9', now: '#0b0b0b', ring: 'rgba(255,255,255,0.8)', wallText: '#0b0b0b', line: 'rgba(11,11,11,0.55)' },
 };
 
 /** Shift a UTC timestamp so lightweight-charts (which formats in UTC) displays local wall time. */
@@ -71,15 +71,22 @@ function buildGrid(h: Heatmap, side: LiqSide): HeatmapGrid {
     hi[c] = last < 0 ? 0 : h.priceMin + (last + 1) * h.binSize;
   }
   const cap = side === 'long' ? h.capLong : side === 'short' ? h.capShort : h.capAll;
-  return { bins: h.bins, priceMin: h.priceMin, binSize: h.binSize, values, cap, lo, hi };
+  let tLo = Infinity;
+  let tHi = -Infinity;
+  for (const k of h.candles) {
+    if (k.l < tLo) tLo = k.l;
+    if (k.h > tHi) tHi = k.h;
+  }
+  // traded range + 6% each side: the 10×–25× clusters stay in view, candles fill the pane
+  return { bins: h.bins, priceMin: h.priceMin, binSize: h.binSize, values, cap, lo, hi, viewLo: tLo * 0.94, viewHi: tHi * 1.06 };
 }
 
 export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, height, windowKey, up, down, liquidations, showLiquidations, walls, showWalls }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const candles = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const heat = useRef<ISeriesApi<'Custom'> | null>(null);
-  const view = useRef<HeatmapSeriesView | null>(null);
+  const closeLine = useRef<ISeriesApi<'Line'> | null>(null);
+  const heat = useRef<HeatmapPrimitive | null>(null);
   const nowLine = useRef<IPriceLine | null>(null);
   const dots = useRef<LiquidationDots | null>(null);
   const wallsRef = useRef<OptionsWalls | null>(null);
@@ -104,10 +111,13 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     const span = Math.max(10, (r.to - r.from) * factor);
     ts.setVisibleLogicalRange({ from: pivot - span * pivotFrac, to: pivot + span * (1 - pivotFrac) });
   };
+  /** Show the most recent ~240 bars (about a day at 5m) so candles are legible; zoom out for the rest. */
   const resetView = () => {
     const c = chart.current;
-    if (!c) return;
-    c.timeScale().fitContent();
+    const n = hmRef.current?.times.length ?? 0;
+    if (!c || n === 0) return;
+    if (n <= 240) c.timeScale().fitContent();
+    else c.timeScale().setVisibleLogicalRange({ from: n - 240, to: n + 3 });
     c.priceScale('right').applyOptions({ autoScale: true });
   };
 
@@ -121,7 +131,7 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
       layout: { background: { type: ColorType.Solid, color: t.bg }, textColor: t.text, fontSize: 10, fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       rightPriceScale: { borderColor: t.border, scaleMargins: { top: 0.02, bottom: 0.02 } },
-      timeScale: { borderColor: t.border, timeVisible: true, secondsVisible: false, rightOffset: 3, minBarSpacing: 0.3 },
+      timeScale: { borderColor: t.border, timeVisible: true, secondsVisible: false, rightOffset: 3, minBarSpacing: 0.5 },
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: { color: t.cross, width: 1, style: LineStyle.Solid, labelBackgroundColor: t.label },
@@ -152,19 +162,22 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     el.addEventListener('pointerdown', arm);
     document.addEventListener('pointerdown', onDocDown);
     el.addEventListener('wheel', onWheel, { passive: false });
-    const v = new HeatmapSeriesView();
-    const hs = c.addCustomSeries(v, { palette, theme, threshold, gamma: 1.5, priceScaleId: 'right' } as Partial<HeatmapOptions>);
+    // a thin close line under the candles keeps the path readable when candles are 1px wide
+    const ln = c.addSeries(LineSeries, { color: THEME[theme].line, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     const cs = c.addSeries(CandlestickSeries, {
       upColor: up, downColor: down, wickUpColor: up, wickDownColor: down, borderVisible: false,
       priceLineVisible: false, lastValueVisible: false,
     });
+    closeLine.current = ln;
+    const hp = new HeatmapPrimitive();
+    hp.setOptions({ palette, theme, threshold, gamma: 1.5 });
     const d = new LiquidationDots();
     const w = new OptionsWalls();
+    cs.attachPrimitive(hp);
     cs.attachPrimitive(d);
     cs.attachPrimitive(w);
     chart.current = c;
-    view.current = v;
-    heat.current = hs;
+    heat.current = hp;
     candles.current = cs;
     dots.current = d;
     wallsRef.current = w;
@@ -193,8 +206,8 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
       chart.current = null;
       candles.current = null;
       heat.current = null;
-      view.current = null;
       nowLine.current = null;
+      closeLine.current = null;
       dots.current = null;
       wallsRef.current = null;
       fitted.current = '';
@@ -213,9 +226,10 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
       timeScale: { borderColor: t.border },
       crosshair: { vertLine: { color: t.cross, labelBackgroundColor: t.label }, horzLine: { color: t.cross, labelBackgroundColor: t.label } },
     });
-    heat.current?.applyOptions({ palette, theme, threshold } as Partial<HeatmapOptions>);
+    heat.current?.setOptions({ palette, theme, threshold });
     candles.current?.applyOptions({ upColor: up, downColor: down, wickUpColor: up, wickDownColor: down });
     nowLine.current?.applyOptions({ color: t.now });
+    closeLine.current?.applyOptions({ color: t.line });
     dots.current?.setOptions({ longColor: up, shortColor: down, ring: t.ring });
     wallsRef.current?.setOptions({ callColor: up, putColor: down, text: t.wallText, maxPainColor: t.cross, flipColor: t.text });
   }, [theme, palette, threshold, up, down]);
@@ -223,23 +237,21 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
   // Heatmap + candles.
   useEffect(() => {
     const c = chart.current;
-    const v = view.current;
-    const hs = heat.current;
+    const hp = heat.current;
     const cs = candles.current;
-    if (!c || !v || !hs || !cs) return;
+    if (!c || !hp || !cs) return;
     if (!heatmap || !grid) {
-      v.setGrid(null);
-      hs.setData([]);
+      hp.setGrid(null);
       cs.setData([]);
+      closeLine.current?.setData([]);
       return;
     }
-    v.setGrid(grid);
-    hs.setData(heatmap.times.map((t, col): HeatmapPoint => ({ time: toChartTime(t), col })));
     cs.setData(heatmap.candles.map((k) => ({ time: toChartTime(k.t), open: k.o, high: k.h, low: k.l, close: k.c })));
+    closeLine.current?.setData(heatmap.candles.map((k) => ({ time: toChartTime(k.t), value: k.c })));
+    hp.setGrid(grid);
     // Fit only when the asset or window changes; refreshes must never reset the user's zoom.
     if (fitted.current !== windowKey) {
-      c.timeScale().fitContent();
-      c.priceScale('right').applyOptions({ autoScale: true });
+      resetView();
       fitted.current = windowKey;
     }
   }, [heatmap, grid, windowKey]);

@@ -1,23 +1,15 @@
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
-import {
-  customSeriesDefaultOptions,
-  type CustomData,
-  type CustomSeriesOptions,
-  type CustomSeriesPricePlotValues,
-  type CustomSeriesWhitespaceData,
-  type ICustomSeriesPaneRenderer,
-  type ICustomSeriesPaneView,
-  type PaneRendererCustomData,
-  type PriceToCoordinateConverter,
-  type Time,
-  type UTCTimestamp,
+import type {
+  AutoscaleInfo, IPrimitivePaneRenderer, IPrimitivePaneView, ISeriesPrimitive, Logical, PrimitivePaneViewZOrder, SeriesAttachedParameter, Time,
 } from 'lightweight-charts';
 
 /**
- * A lightweight-charts custom series that paints a price × time heatmap under
- * the candles. The grid is held on the pane view (not in options, which are
- * deep-merged) and rasterised once per visible range into an ImageData that is
- * reused while only the crosshair moves.
+ * A lightweight-charts series primitive (z-order "bottom") that paints a
+ * price × time heatmap beneath the candles it is attached to. A primitive is
+ * used rather than a custom series because the chart redraws the hovered series
+ * last, which would paint the heatmap over the candles on hover. The grid is
+ * rasterised once per visible range into an ImageData that is reused while
+ * only the crosshair moves.
  */
 
 export type Palette = 'viridis' | 'mono';
@@ -94,113 +86,99 @@ export interface HeatmapGrid {
   values: Float32Array;
   /** Colour ceiling (robust max). */
   cap: number;
-  /** Per-column lowest / highest non-zero level, for autoscale. */
+  /** Per-column lowest / highest non-zero level. */
   lo: Float32Array;
   hi: Float32Array;
+  /** Price range the chart should show by default: the traded range plus a margin for nearby bands. */
+  viewLo: number;
+  viewHi: number;
 }
 
-export interface HeatmapPoint extends CustomData<Time> {
-  time: UTCTimestamp;
-  col: number;
-}
-
-export interface HeatmapOptions extends CustomSeriesOptions {
+export interface HeatmapOptions {
   palette: Palette;
   theme: 'dark' | 'light';
   threshold: number;
   gamma: number;
 }
 
-const defaultHeatmapOptions: HeatmapOptions = {
-  ...customSeriesDefaultOptions,
-  palette: 'viridis',
-  theme: 'dark',
-  threshold: 0.2,
-  gamma: 1.5,
-  lastValueVisible: false,
-  priceLineVisible: false,
-};
+const DEFAULTS: HeatmapOptions = { palette: 'viridis', theme: 'dark', threshold: 0.2, gamma: 1.5 };
 
-class HeatmapRenderer implements ICustomSeriesPaneRenderer {
-  private data: PaneRendererCustomData<Time, HeatmapPoint> | null = null;
-  private options: HeatmapOptions = defaultHeatmapOptions;
-  private grid: HeatmapGrid | null = null;
+class HeatmapRenderer implements IPrimitivePaneRenderer {
   private cacheKey = '';
   private cacheImg: ImageData | null = null;
+  private cacheGrid: HeatmapGrid | null = null;
 
-  update(data: PaneRendererCustomData<Time, HeatmapPoint>, options: HeatmapOptions, grid: HeatmapGrid | null) {
-    this.data = data;
-    this.options = options;
-    if (grid !== this.grid) this.cacheKey = '';
-    this.grid = grid;
-  }
+  constructor(private readonly owner: HeatmapPrimitive) {}
 
-  draw(target: CanvasRenderingTarget2D, priceConverter: PriceToCoordinateConverter): void {
-    const data = this.data;
-    const grid = this.grid;
-    if (!data || !grid || !data.visibleRange || data.bars.length === 0) return;
+  draw(target: CanvasRenderingTarget2D): void {
+    const p = this.owner.param;
+    const grid = this.owner.grid;
+    if (!p || !grid) return;
+    const ts = p.chart.timeScale();
+    const range = ts.getVisibleLogicalRange();
+    if (!range) return;
+    const cols = grid.values.length / grid.bins;
+    const from = Math.max(0, Math.floor(range.from));
+    const to = Math.min(cols - 1, Math.ceil(range.to));
+    if (to < from) return;
+    const x0m = ts.logicalToCoordinate(0 as Logical);
+    const x1m = ts.logicalToCoordinate(1 as Logical);
+    if (x0m === null || x1m === null) return;
+    const spacing = x1m - x0m;
     target.useBitmapCoordinateSpace((scope) => {
       const { context: ctx, bitmapSize, horizontalPixelRatio: hpr, verticalPixelRatio: vpr } = scope;
       const W = bitmapSize.width;
       const H = bitmapSize.height;
       if (W === 0 || H === 0) return;
-      const from = Math.max(0, data.visibleRange!.from);
-      const to = Math.min(data.bars.length, data.visibleRange!.to);
-      if (to <= from) return;
-
-      // Bin edges in bitmap y (price up = y down).
-      const bins = grid.bins;
-      const yEdge = new Float32Array(bins + 1);
-      for (let b = 0; b <= bins; b++) {
-        const y = priceConverter(grid.priceMin + b * grid.binSize);
+      const yEdge = new Float32Array(grid.bins + 1);
+      for (let b = 0; b <= grid.bins; b++) {
+        const y = p.series.priceToCoordinate(grid.priceMin + b * grid.binSize);
         yEdge[b] = y === null ? NaN : y * vpr;
       }
-      const half = (data.barSpacing * hpr) / 2;
-      const key = [data.bars[from].x, data.bars[to - 1].x, from, to, data.barSpacing, yEdge[0], yEdge[bins], W, H, this.options.palette, this.options.theme, this.options.threshold, this.options.gamma].join('|');
-      if (key !== this.cacheKey || !this.cacheImg) {
-        this.cacheImg = this.rasterise(ctx, W, H, from, to, half, hpr, yEdge);
+      const o = this.owner.options;
+      const key = [x0m, spacing, from, to, yEdge[0], yEdge[grid.bins], W, H, o.palette, o.theme, o.threshold, o.gamma].join('|');
+      if (key !== this.cacheKey || !this.cacheImg || this.cacheGrid !== grid) {
+        this.cacheImg = this.rasterise(ctx, grid, o, W, H, from, to, (x0m + from * spacing) * hpr, spacing * hpr, yEdge);
         this.cacheKey = key;
+        this.cacheGrid = grid;
       }
       ctx.putImageData(this.cacheImg, 0, 0);
     });
   }
 
-  private rasterise(ctx: CanvasRenderingContext2D, W: number, H: number, from: number, to: number, half: number, hpr: number, yEdge: Float32Array): ImageData {
-    const data = this.data!;
-    const grid = this.grid!;
+  private rasterise(ctx: CanvasRenderingContext2D, grid: HeatmapGrid, o: HeatmapOptions, W: number, H: number, from: number, to: number, xFrom: number, step: number, yEdge: Float32Array): ImageData {
     const bins = grid.bins;
-    const lut = lutFor(this.options.palette, this.options.theme);
-    const floor = this.options.threshold;
-    const gamma = this.options.gamma;
+    const lut = lutFor(o.palette, o.theme);
+    const floor = o.threshold;
+    const gamma = o.gamma;
     const denom = Math.max(1e-9, grid.cap);
     const img = ctx.createImageData(W, H);
     const px = img.data;
 
-    // Which data columns cover each pixel column (bars are ordered left -> right).
+    // Which data columns cover each pixel column.
     const startCol = new Int32Array(W).fill(-1);
     const endCol = new Int32Array(W).fill(-1);
-    for (let i = from; i < to; i++) {
-      const bar = data.bars[i];
-      const x0 = Math.max(0, Math.floor(bar.x * hpr - half));
-      const x1 = Math.min(W - 1, Math.ceil(bar.x * hpr + half) - 1);
-      for (let x = x0; x <= x1; x++) {
-        if (startCol[x] < 0) startCol[x] = bar.originalData.col;
-        endCol[x] = bar.originalData.col;
+    const half = step / 2;
+    for (let i = from; i <= to; i++) {
+      const cx = xFrom + (i - from) * step;
+      const xa = Math.max(0, Math.floor(cx - half));
+      const xb = Math.min(W - 1, Math.ceil(cx + half) - 1);
+      for (let x = xa; x <= xb; x++) {
+        if (startCol[x] < 0) startCol[x] = i;
+        endCol[x] = i;
       }
     }
 
-    // Background = palette floor.
     const r0 = lut[0];
     const g0 = lut[1];
     const b0 = lut[2];
-    for (let o = 0; o < px.length; o += 4) {
-      px[o] = r0;
-      px[o + 1] = g0;
-      px[o + 2] = b0;
-      px[o + 3] = 255;
+    for (let q = 0; q < px.length; q += 4) {
+      px[q] = r0;
+      px[q + 1] = g0;
+      px[q + 2] = b0;
+      px[q + 3] = 255;
     }
 
-    // Visible bin rows.
     const rowTop = new Int32Array(bins);
     const rowBot = new Int32Array(bins);
     for (let b = 0; b < bins; b++) {
@@ -213,7 +191,7 @@ class HeatmapRenderer implements ICustomSeriesPaneRenderer {
       }
       rowTop[b] = Math.max(0, Math.round(Math.min(yt, yb)));
       rowBot[b] = Math.min(H - 1, Math.round(Math.max(yt, yb)) - 1);
-      if (rowBot[b] < rowTop[b] && rowTop[b] < H) rowBot[b] = rowTop[b]; // keep sub-pixel bins visible
+      if (rowBot[b] < rowTop[b] && rowTop[b] < H) rowBot[b] = rowTop[b];
     }
 
     const V = grid.values;
@@ -239,10 +217,10 @@ class HeatmapRenderer implements ICustomSeriesPaneRenderer {
         const g = lut[li + 1];
         const bl = lut[li + 2];
         for (let y = top; y <= bot; y++) {
-          const o = (y * W + x) * 4;
-          px[o] = r;
-          px[o + 1] = g;
-          px[o + 2] = bl;
+          const q = (y * W + x) * 4;
+          px[q] = r;
+          px[q + 1] = g;
+          px[q + 2] = bl;
         }
       }
     }
@@ -250,40 +228,36 @@ class HeatmapRenderer implements ICustomSeriesPaneRenderer {
   }
 }
 
-export class HeatmapSeriesView implements ICustomSeriesPaneView<Time, HeatmapPoint, HeatmapOptions> {
-  private readonly r = new HeatmapRenderer();
-  private grid: HeatmapGrid | null = null;
+export class HeatmapPrimitive implements ISeriesPrimitive<Time> {
+  param: SeriesAttachedParameter<Time> | null = null;
+  grid: HeatmapGrid | null = null;
+  options: HeatmapOptions = DEFAULTS;
+  private readonly r = new HeatmapRenderer(this);
+  private readonly view: IPrimitivePaneView = {
+    zOrder: (): PrimitivePaneViewZOrder => 'bottom',
+    renderer: () => (this.grid ? this.r : null),
+  };
 
-  /** Swap the grid; call `setData` on the series afterwards so the chart repaints. */
+  attached(p: SeriesAttachedParameter<Time>) {
+    this.param = p;
+  }
+  detached() {
+    this.param = null;
+  }
   setGrid(grid: HeatmapGrid | null) {
     this.grid = grid;
+    this.param?.requestUpdate();
   }
-
-  renderer(): ICustomSeriesPaneRenderer {
-    return this.r;
+  setOptions(o: Partial<HeatmapOptions>) {
+    this.options = { ...this.options, ...o };
+    this.param?.requestUpdate();
   }
-
-  update(data: PaneRendererCustomData<Time, HeatmapPoint>, options: HeatmapOptions): void {
-    this.r.update(data, options, this.grid);
+  paneViews() {
+    return [this.view];
   }
-
-  priceValueBuilder(row: HeatmapPoint): CustomSeriesPricePlotValues {
-    // A constant range per window keeps the price axis still while panning and zooming;
-    // the chart only rescales when the window (and so the grid) changes.
-    const g = this.grid;
-    if (!g || row.col >= g.lo.length) return [NaN];
-    return [g.priceMin, g.priceMin + g.bins * g.binSize, g.hi[row.col] || g.priceMin];
-  }
-
-  isWhitespace(d: HeatmapPoint | CustomSeriesWhitespaceData<Time>): d is CustomSeriesWhitespaceData<Time> {
-    return (d as HeatmapPoint).col === undefined;
-  }
-
-  defaultOptions(): HeatmapOptions {
-    return defaultHeatmapOptions;
-  }
-
-  destroy(): void {
-    this.grid = null;
+  /** Keep the traded range plus margin in view (the candles alone would hug the price path). */
+  autoscaleInfo(): AutoscaleInfo | null {
+    if (!this.grid) return null;
+    return { priceRange: { minValue: this.grid.viewLo, maxValue: this.grid.viewHi } };
   }
 }

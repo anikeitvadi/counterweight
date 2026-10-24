@@ -32,7 +32,7 @@ export default defineConfig({
     port: 5180,
     proxy: {
       // OKX's statistics endpoints reject browser cross-origin calls; in dev Vite relays them,
-      // in production api/okx/[...path].ts does (same path).
+      // in production api/okx-relay.ts does, behind a rewrite (same path).
       '/api/okx': {
         target: 'https://www.okx.com/api/v5',
         changeOrigin: true,

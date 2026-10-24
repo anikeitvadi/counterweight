@@ -5,7 +5,7 @@ const BASE = 'https://www.okx.com/api/v5';
 /**
  * OKX's `rubik/stat` endpoints (OI history) answer curl and Node but refuse
  * browser cross-origin calls, so they go through a same-origin relay:
- * Vite's dev proxy locally, `api/okx/[...path].ts` on Vercel.
+ * Vite's dev proxy locally, `api/okx-relay.ts` (via a rewrite) on Vercel.
  */
 const RELAY = '/api/okx';
 const WS_URL = 'wss://ws.okx.com:8443/ws/v5/public';

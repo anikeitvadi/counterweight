@@ -120,7 +120,7 @@ OKX (perp):
 - `GET /api/v5/rubik/stat/contracts/open-interest-history` — OI in coin, 100 per page; OKX keeps
   ~3 days at 5m, ~14 days at 15m, ~30 days at 1H, which is why the window picks the bar (12H/1D/3D → 5m, 7D → 15m, 30D → 1H).
   **This endpoint answers without CORS headers, so browsers cannot call it directly.** It goes through a
-  same-origin relay at `/api/okx/rubik/...`: Vite's dev proxy locally, `api/okx/[...path].ts` (a Vercel
+  same-origin relay at `/api/okx/rubik/...`: Vite's dev proxy locally, `api/okx-relay.ts` behind a rewrite (a Vercel
   function that forwards only that prefix, cached 30s) in production. If the relay is unreachable — e.g.
   the built page opened from disk — the heatmap falls back to Delta's own perp OI and says so in its subtitle.
 - `wss://ws.okx.com:8443/ws/v5/public` — live ticker / OI / funding

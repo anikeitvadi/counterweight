@@ -17,12 +17,10 @@ interface CardProps {
   data: MarketData;
   expirySel: ExpirySel;
   model: LiqModel;
-  /** Prefix the heading with the asset: on when the widget shows more than one. */
-  named: boolean;
 }
 
 /** Widget block for one asset: the ratio first, then only the numbers that change a decision. */
-export function WidgetCard({ asset, data, expirySel, model, named }: CardProps) {
+export function WidgetCard({ asset, data, expirySel, model }: CardProps) {
   const spot = data.options[0]?.spot || data.perp?.last || 0;
   const perpPrice = data.perp?.last || spot;
   const groups = useMemo(() => groupByExpiry(data.options), [data.options]);
@@ -38,22 +36,23 @@ export function WidgetCard({ asset, data, expirySel, model, named }: CardProps) 
   const below = nearest.find((c) => c.side === 'long') ?? null;
   const chg = data.perp && data.perp.open24h > 0 ? ((data.perp.last - data.perp.open24h) / data.perp.open24h) * 100 : null;
   const name = ASSET_NAME[asset];
+  const context = useMemo(() => ({ asset: name, spot, maxPain: frontMaxPain, above, below, fundingPct: data.perp ? data.perp.fundingRate * 100 : null }), [name, spot, frontMaxPain, above, below, data.perp]);
 
   return (
     <section className="wcard" aria-label={`${name} widget`}>
       <ErrorBoundary title="Put / call ratio">
         <RatioPanel
           options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact
-          title={named ? `${name} · put / call` : undefined} selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes}
+          selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} context={context}
         />
       </ErrorBoundary>
       <div className="widget-strip tiles">
         <div className="tile"><div className="lbl">{name} perp</div><div className="val">{perpPrice > 0 ? fmtPrice(perpPrice) : '—'}</div>{chg !== null && <div className={`sub ${chg >= 0 ? 'up' : 'down'}`}>{fmtPct(chg, 2, true)} 24h</div>}</div>
         <div className="tile"><div className="lbl">Funding (8h)</div><div className="val">{data.perp ? `${data.perp.fundingRate >= 0 ? '+' : ''}${(data.perp.fundingRate * 100).toFixed(4)}%` : '—'}</div><div className="sub">{data.perp ? `${fmtPct(data.perp.fundingRate * 100 * 3 * 365, 0, true)} annualised` : ''}</div></div>
-        <div className="tile"><div className="lbl">Max pain · {front ? fmtDateShort(front.expiryMs) : ''}</div><div className="val">{frontMaxPain !== null ? fmtPrice(frontMaxPain) : '—'}</div>{frontMaxPain !== null && spot > 0 && <div className="sub">{fmtPct(((frontMaxPain - spot) / spot) * 100, 2, true)} from spot</div>}</div>
-        <div className="tile"><div className="lbl">IV rank · 1y</div><div className="val">{rank ? Math.round(rank.rank * 100) : '—'}</div><div className="sub">{rank ? `DVOL ${rank.current.toFixed(1)} · ${rank.rank > 0.6 ? 'rich' : rank.rank < 0.3 ? 'cheap' : 'mid'}` : frontIv !== null ? `ATM IV ${fmtPct(frontIv * 100, 0)}` : ''}</div></div>
-        <div className="tile"><div className="lbl">Liq. cluster above</div><div className="val">{above ? fmtPrice(above.price) : '—'}</div>{above && <div className="sub">{fmtPct(above.distPct, 1, true)} · {fmtUsd(above.usd)}</div>}</div>
-        <div className="tile"><div className="lbl">Liq. cluster below</div><div className="val">{below ? fmtPrice(below.price) : '—'}</div>{below && <div className="sub">{fmtPct(below.distPct, 1, true)} · {fmtUsd(below.usd)}</div>}</div>
+        <div className="tile"><div className="lbl" title={front ? `Front expiry ${fmtDateShort(front.expiryMs)}` : undefined}>Max pain</div><div className="val">{frontMaxPain !== null ? fmtPrice(frontMaxPain) : '—'}</div>{frontMaxPain !== null && spot > 0 && <div className="sub">{fmtPct(((frontMaxPain - spot) / spot) * 100, 2, true)} from spot</div>}</div>
+        <div className="tile"><div className="lbl">IV rank</div><div className="val">{rank ? Math.round(rank.rank * 100) : '—'}</div><div className="sub">{rank ? `DVOL ${rank.current.toFixed(1)} · ${rank.rank > 0.6 ? 'rich' : rank.rank < 0.3 ? 'cheap' : 'mid'}` : frontIv !== null ? `ATM IV ${fmtPct(frontIv * 100, 0)}` : ''}</div></div>
+        <div className="tile"><div className="lbl">Liq. above</div><div className="val">{above ? fmtPrice(above.price) : '—'}</div>{above && <div className="sub">{fmtPct(above.distPct, 1, true)} · {fmtUsd(above.usd)}</div>}</div>
+        <div className="tile"><div className="lbl">Liq. below</div><div className="val">{below ? fmtPrice(below.price) : '—'}</div>{below && <div className="sub">{fmtPct(below.distPct, 1, true)} · {fmtUsd(below.usd)}</div>}</div>
       </div>
     </section>
   );

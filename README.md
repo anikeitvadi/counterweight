@@ -13,11 +13,13 @@ always-on-top desktop window. Public exchange data only: no accounts, no API key
 
 ## What it shows
 
-**Put / call ratio.** Written as a conviction ratio: the smaller side is 1, the bigger side is the multiple,
-so `1 : 2.3` means 2.3× as much open interest on the bigger side. The colour is the contrarian lean: **red**
-when puts are the thin side (the crowd is long), **green** when calls are thin (the crowd is hedged). The classic
-put/call figure, puts and calls open interest in contracts or dollars, the 24h-volume ratio, a gauge, 24h / 7d
-change with a trend sparkline, and a per-expiry breakdown sit beside it.
+**Put / call, written as a lean.** The hero card is one number, one word and one sentence. The number has
+the smaller side as 1, so `1 : 2.3` means 2.3× as much open interest on the bigger side. The word is the trade
+direction and the only coloured thing on the card: **Short** in red when puts are the thin side (the crowd is long),
+**Long** in green when calls are thin (the crowd is hedged). The sentence is the **Read**, composed from the
+numbers on screen: the lean, max pain, the first liquidation cluster in the lean's direction, funding when it is
+extreme. Under it, puts and calls with a single split bar, then max pain, the classic put/call figure, the
+24h-volume ratio and the 24h / 7d change. The per-expiry breakdown is one tap away in the table view.
 
 **Market snapshot.** Perp price and 24h change, funding (8h and annualised), perp open interest and its 6h
 change, 24h volume, options open interest, ATM implied vs 7-day realised volatility, IV rank (1y), 25Δ skew,
@@ -40,7 +42,9 @@ The tab title carries price and ratio.
 
 <p align="center"><img src="docs/screenshots/widget.png" width="420" alt="Widget mode with BTC and ETH"></p>
 
-Every chart has a table view and an ⓘ that explains what it shows and how to read it. Panels can be switched
+The whole desk is one design system: Geist and Geist Mono (self-hosted, so the desktop app works offline), near-black
+surfaces, hairline borders, pill controls, and colour used only where it means something: green is calls, longs and
+positive; red is puts, shorts and negative. Every chart has a table view and an ⓘ that explains what it shows and how to read it. Panels can be switched
 off and dragged into any order; layout, asset, expiry venue and theme are remembered. Keyboard: `1 2 3`
 assets, `[ ]` heatmap window, `t` theme, `c` compact, `w` widget, `l` widget layout, `?` help.
 

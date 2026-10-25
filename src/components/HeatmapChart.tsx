@@ -43,8 +43,8 @@ interface Props {
 }
 
 const THEME = {
-  dark: { bg: '#1a1a19', text: '#898781', border: '#383835', cross: '#c3c2b7', label: '#383835', now: '#ffffff', ring: 'rgba(0,0,0,0.65)', wallText: '#e6e6e0', line: 'rgba(255,255,255,0.55)' },
-  light: { bg: '#fcfcfb', text: '#898781', border: '#c3c2b7', cross: '#52514e', label: '#e1e0d9', now: '#0b0b0b', ring: 'rgba(255,255,255,0.8)', wallText: '#0b0b0b', line: 'rgba(11,11,11,0.55)' },
+  dark: { bg: '#111113', text: '#63636b', border: '#2a2a2f', cross: '#a1a1aa', label: '#1f1f23', now: '#f4f4f5', ring: 'rgba(0,0,0,0.65)', wallText: '#e4e4e7', line: 'rgba(255,255,255,0.5)' },
+  light: { bg: '#ffffff', text: '#8b8b94', border: '#d4d4d8', cross: '#52525b', label: '#e4e4e7', now: '#09090b', ring: 'rgba(255,255,255,0.8)', wallText: '#09090b', line: 'rgba(9,9,11,0.5)' },
 };
 
 /** Shift a UTC timestamp so lightweight-charts (which formats in UTC) displays local wall time. */
@@ -128,7 +128,7 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     const t = THEME[theme];
     const c = createChart(el, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: t.bg }, textColor: t.text, fontSize: 10, fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', attributionLogo: false },
+      layout: { background: { type: ColorType.Solid, color: t.bg }, textColor: t.text, fontSize: 10, fontFamily: '"Geist Mono Variable", ui-monospace, Menlo, monospace', attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       rightPriceScale: { borderColor: t.border, scaleMargins: { top: 0.02, bottom: 0.02 } },
       timeScale: { borderColor: t.border, timeVisible: true, secondsVisible: false, rightOffset: 3, minBarSpacing: 0.5 },

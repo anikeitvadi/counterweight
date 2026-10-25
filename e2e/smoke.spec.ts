@@ -38,13 +38,13 @@ test.describe('Counterweight smoke', () => {
 
   test('widget mode shows the ratio hero, can add a second asset, and persists via the hash', async ({ page }) => {
     await page.goto('/#widget');
-    await expect(page.getByRole('heading', { name: 'Put / call ratio' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^BTC · / })).toBeVisible();
     // conviction form: smaller side normalised to 1
-    await expect(page.locator('.ratio .big').first()).toHaveText(/^1 : /, { timeout: 45_000 });
+    await expect(page.locator('.ratio .num .v').first()).toHaveText(/^1:\d/, { timeout: 45_000 });
     await expect(page.locator('.lwc')).toHaveCount(0);
     await page.getByRole('button', { name: 'ETH', pressed: false }).click();
     await expect(page.locator('.wcard')).toHaveCount(2);
-    await expect(page.getByRole('heading', { name: 'ETH · put / call' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^ETH · / })).toBeVisible();
     await page.reload();
     await expect(page.locator('.wcard')).toHaveCount(2);
     await page.getByRole('button', { name: 'ETH', pressed: true }).click();

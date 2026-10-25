@@ -245,6 +245,13 @@ export function App() {
     };
   }, [asset, perpPrice, heatmap, frontMaxPain, gex.flip, data.perp, data.liquidations]);
   const alerts = useAlerts(rules, alertInput);
+  const nearest = heatmap && perpPrice > 0 ? currentClusters(heatmap, perpPrice, 1) : [];
+  const readContext = useMemo(() => ({
+    asset: ASSET_NAME[asset], spot, maxPain: frontMaxPain,
+    above: nearest.find((c) => c.side === 'short') ?? null, below: nearest.find((c) => c.side === 'long') ?? null,
+    fundingPct: data.perp ? data.perp.fundingRate * 100 : null,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [asset, spot, frontMaxPain, heatmap, perpPrice, data.perp]);
 
   useEffect(() => {
     const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
@@ -300,7 +307,7 @@ export function App() {
       case 'ratio':
         return (
           <ErrorBoundary key={key} title="Put / call ratio">
-            <RatioPanel options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact={widget} selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} drag={dragProps(key)} />
+            <RatioPanel options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact={widget} selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} context={readContext} drag={dragProps(key)} />
           </ErrorBoundary>
         );
       case 'heatmap':
@@ -494,9 +501,9 @@ export function App() {
         <div className={`wgrid ${widgetLayout}`} style={{ '--n': shownAssets.length } as React.CSSProperties}>
           {shownAssets.map((a) =>
             a === asset ? (
-              <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} named={shownAssets.length > 1} />
+              <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} />
             ) : (
-              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} named />
+              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} />
             ),
           )}
         </div>

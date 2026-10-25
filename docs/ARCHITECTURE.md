@@ -91,6 +91,16 @@ website, proxies `/api/okx/*` in-process, and injects CORS headers for the three
 `userData/window.json`. Setting `COUNTERWEIGHT_SHOT=<file.png>` captures a screenshot and quits, which is how
 the shell is verified headlessly. Electron 37 is pinned because newer majors require Node ≥ 22 to install.
 
+## Design system (`src/styles.css`)
+
+Tokens live on `:root` (dark) and `:root[data-theme='light']`: page `#09090b`, surface `#111113`, surface-2
+`#17171a`, ink `#f4f4f5` / `#a1a1aa` / `#63636b`, hairline border at 6% white. Type is Geist (variable, bundled
+from `@fontsource-variable/geist`) with Geist Mono for every figure; panel titles are 10.5px uppercase eyebrows
+with 0.14em tracking. Radii: 20px panels, 16px tiles, pill controls. There is no accent hue: `--accent` is
+near-white and used only for focus rings and single-series lines; green `#089981` and red `#f23645` are the only
+colours and mean calls/longs/positive and puts/shorts/negative everywhere, including the direction word on the
+hero. The heatmap keeps viridis because it encodes magnitude, not sentiment.
+
 ## Conventions
 
 - Green `#089981` is calls / longs / positive; red `#f23645` is puts / shorts / negative. Blue is only an accent.

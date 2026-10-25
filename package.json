@@ -41,10 +41,10 @@
   "description": "Options analytics, put/call ratio and liquidation heatmap for BTC, ETH and gold",
   "author": "Anikeit Vadi",
   "license": "MIT",
-  "homepage": "https://cryptodesk-anakeet.vercel.app",
+  "homepage": "https://counterweight-anakeet.vercel.app",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anikeitvadi/cryptodesk.git"
+    "url": "https://github.com/anikeitvadi/counterweight.git"
   },
   "engines": {
     "node": ">=20"

@@ -5,8 +5,8 @@ A put/call conviction ratio first, then an estimated liquidation heatmap, open i
 the volatility surface, options flow and alerts. Runs as a web app, an installable PWA, or a small
 always-on-top desktop window. Public exchange data only: no accounts, no API keys, nothing leaves the browser.
 
-[**Open the web app**](https://cryptodesk-anakeet.vercel.app) ·
-[**Download for Windows / macOS**](https://github.com/anikeitvadi/cryptodesk/releases/latest) ·
+[**Open the web app**](https://counterweight-anakeet.vercel.app) ·
+[**Download for Windows / macOS**](https://github.com/anikeitvadi/counterweight/releases/latest) ·
 [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md)
 
 ![Counterweight desk view: put/call ratio, market snapshot and liquidation heatmap](docs/screenshots/desk.png)

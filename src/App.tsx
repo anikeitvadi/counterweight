@@ -248,7 +248,7 @@ export function App() {
 
   useEffect(() => {
     const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
-    document.title = l && perpPrice > 0 ? `${ASSET_NAME[asset]} ${fmtPrice(perpPrice)} · ${l.fewer === 'calls' ? 'C:P' : 'P:C'} ${fmtLean(l, 1)} — CryptoDesk` : 'CryptoDesk';
+    document.title = l && perpPrice > 0 ? `${ASSET_NAME[asset]} ${fmtPrice(perpPrice)} · ${l.fewer === 'calls' ? 'C:P' : 'P:C'} ${fmtLean(l, 1)} — Counterweight` : 'Counterweight';
   }, [asset, pcr, perpPrice]);
 
   const lastGood = Math.max(data.updatedAt ?? 0, data.tickAt ?? 0) || null;
@@ -360,7 +360,7 @@ export function App() {
   return (
     <div className={`app${compact ? ' compact' : ''}${widget ? ` widget ${widgetLayout}` : ''}`}>
       <header className="hdr">
-        <span className="brand">CryptoDesk</span>
+        <span className="brand">Counterweight</span>
         <span className={`pill ${data.health}`} title={statusTitle} aria-live="polite">
           <i className="dot" />
           {HEALTH_LABEL[data.health]}

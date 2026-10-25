@@ -2,6 +2,9 @@
 
 ## 0.2.0 — 2026-10-24
 
+- **Renamed to Counterweight.** The app watches gold as well as crypto, and its one idea is that the thin side of
+  positioning is the weight against the crowd. Desktop builds, the app id and the tray now carry the new name.
+
 - **Conviction ratio.** The put/call hero is now written with the smaller side as 1 (`1 : 2.3`), ordered
   `puts : calls` or `calls : puts`, and coloured by the contrarian lean: red when puts are the thin side,
   green when calls are. The classic put/call figure stays beside it; the snapshot tile, per-expiry rows,

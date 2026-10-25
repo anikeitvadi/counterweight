@@ -10,7 +10,7 @@ async function expectDeskLoaded(page: Page) {
   await expect(page.getByText(/^Max pain/).first()).toBeVisible();
 }
 
-test.describe('CryptoDesk smoke', () => {
+test.describe('Counterweight smoke', () => {
   test('loads BTC, ETH and gold without console errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));

@@ -1,3 +1,3 @@
 interface Window {
-  cryptodesk?: { isElectron: true; platform: string };
+  counterweight?: { isElectron: true; platform: string };
 }

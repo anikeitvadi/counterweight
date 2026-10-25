@@ -14,7 +14,7 @@ src/
   components/   one file per panel; Panel.tsx is the shared frame (title, ⓘ glossary, table view, drag)
   App.tsx       layout, header, settings, keyboard, widget composition
 api/            Vercel functions: okx-relay.ts (CORS relay for one OKX prefix), health.ts (cron liveness)
-electron/       main.cjs (custom cryptodesk:// scheme, CORS injection, tray, always-on-top), preload.cjs
+electron/       main.cjs (custom counterweight:// scheme, CORS injection, tray, always-on-top), preload.cjs
 e2e/            Playwright smoke tests against the live APIs
 ```
 
@@ -46,7 +46,7 @@ environments satisfy it:
 | --- | --- |
 | `npm run dev` | Vite dev-server proxy (`vite.config.ts`) |
 | Vercel | `api/okx-relay.ts` behind a rewrite in `vercel.json`; only the `rubik/stat/` prefix is forwarded |
-| Electron | the `cryptodesk://` protocol handler in `electron/main.cjs` |
+| Electron | the `counterweight://` protocol handler in `electron/main.cjs` |
 
 If the relay is unreachable (for example the built `dist/` opened from disk) the heatmap falls back to
 Delta's perp OI and says so in its subtitle.
@@ -85,10 +85,10 @@ tab title follow the primary asset.
 
 ## Desktop shell (`electron/main.cjs`)
 
-Serves `dist/` over a privileged `cryptodesk://` scheme so fetch, service workers and storage behave as on a
+Serves `dist/` over a privileged `counterweight://` scheme so fetch, service workers and storage behave as on a
 website, proxies `/api/okx/*` in-process, and injects CORS headers for the three exchange hosts with
 `onHeadersReceived`. Tray icon, always-on-top toggle, widget/desk views, window state persisted in
-`userData/window.json`. Setting `CRYPTODESK_SHOT=<file.png>` captures a screenshot and quits, which is how
+`userData/window.json`. Setting `COUNTERWEIGHT_SHOT=<file.png>` captures a screenshot and quits, which is how
 the shell is verified headlessly. Electron 37 is pinned because newer majors require Node ≥ 22 to install.
 
 ## Conventions

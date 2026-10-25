@@ -1,6 +1,6 @@
-# CryptoDesk
+# Counterweight
 
-**Options positioning and liquidation levels for BTC, ETH and gold, on one screen.**
+**The thin side is the trade.** Options positioning and liquidation levels for BTC, ETH and gold, on one screen.
 A put/call conviction ratio first, then an estimated liquidation heatmap, open interest and gamma by strike,
 the volatility surface, options flow and alerts. Runs as a web app, an installable PWA, or a small
 always-on-top desktop window. Public exchange data only: no accounts, no API keys, nothing leaves the browser.
@@ -9,7 +9,7 @@ always-on-top desktop window. Public exchange data only: no accounts, no API key
 [**Download for Windows / macOS**](https://github.com/anikeitvadi/cryptodesk/releases/latest) ·
 [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md)
 
-![CryptoDesk desk view: put/call ratio, market snapshot and liquidation heatmap](docs/screenshots/desk.png)
+![Counterweight desk view: put/call ratio, market snapshot and liquidation heatmap](docs/screenshots/desk.png)
 
 ## What it shows
 
@@ -79,8 +79,8 @@ Node 20 or newer. `npm run build` produces a static site in `dist/` that also wo
 
 ```bash
 npm run app          # build and launch the Electron shell
-npm run dist:mac     # release/CryptoDesk-<version>-arm64.dmg and -x64.dmg
-npm run dist:win     # release/CryptoDesk-<version>-win-x64.zip (unzip and run CryptoDesk.exe)
+npm run dist:mac     # release/Counterweight-<version>-arm64.dmg and -x64.dmg
+npm run dist:win     # release/Counterweight-<version>-win-x64.zip (unzip and run Counterweight.exe)
 ```
 
 The desktop app opens in widget view in a small window, remembers its size and position, has a tray icon and

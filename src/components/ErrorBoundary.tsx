@@ -17,7 +17,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error(`[CryptoDesk] ${this.props.title} crashed`, error, info.componentStack);
+    console.error(`[Counterweight] ${this.props.title} crashed`, error, info.componentStack);
   }
 
   render() {

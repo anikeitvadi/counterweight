@@ -1,5 +1,5 @@
 {
-  "name": "cryptodesk",
+  "name": "counterweight",
   "private": true,
   "version": "0.2.0",
   "type": "module",
@@ -13,7 +13,7 @@
     "test:e2e": "playwright test",
     "check": "npm run typecheck && npm run test && npm run build",
     "app": "npm run build && electron .",
-    "app:dev": "CRYPTODESK_DEV_URL=http://localhost:5180 electron .",
+    "app:dev": "COUNTERWEIGHT_DEV_URL=http://localhost:5180 electron .",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win zip --x64",
     "dist:all": "npm run build && electron-builder --mac --win zip --x64"
@@ -48,8 +48,8 @@
     "node": ">=20"
   },
   "build": {
-    "appId": "app.cryptodesk.desk",
-    "productName": "CryptoDesk",
+    "appId": "app.counterweight.desk",
+    "productName": "Counterweight",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -84,10 +84,10 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "CryptoDesk-${version}-win-${arch}.${ext}"
+      "artifactName": "Counterweight-${version}-win-${arch}.${ext}"
     },
     "dmg": {
-      "artifactName": "CryptoDesk-${version}-${arch}.${ext}"
+      "artifactName": "Counterweight-${version}-${arch}.${ext}"
     }
   }
 }

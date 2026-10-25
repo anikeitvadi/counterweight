@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'CryptoDesk',
-        short_name: 'CryptoDesk',
+        name: 'Counterweight',
+        short_name: 'Counterweight',
         description: 'Options analytics and liquidation heatmap for BTC, ETH and gold',
         theme_color: '#0d0d0d',
         background_color: '#0d0d0d',

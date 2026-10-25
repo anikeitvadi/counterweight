@@ -1,4 +1,4 @@
-// CryptoDesk desktop shell: loads the built web app, talks to the exchanges directly
+// Counterweight desktop shell: loads the built web app, talks to the exchanges directly
 // (no relay needed — CORS headers are added in-process), keeps a tray icon and an
 // always-on-top option so it can sit beside a trading screen.
 const { app, BrowserWindow, Menu, Tray, nativeImage, shell, session, protocol, net } = require('electron');
@@ -6,7 +6,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 
-const DEV_URL = process.env.CRYPTODESK_DEV_URL; // e.g. http://localhost:5180 when running `vite`
+const DEV_URL = process.env.COUNTERWEIGHT_DEV_URL; // e.g. http://localhost:5180 when running `vite`
 const DIST = path.join(__dirname, '..', 'dist');
 const EXCHANGE_HOSTS = ['api.india.delta.exchange', 'www.okx.com', 'www.deribit.com'];
 const STATE_FILE = () => path.join(app.getPath('userData'), 'window.json');
@@ -30,10 +30,10 @@ function saveState(patch) {
 }
 
 // Serve dist/ over a proper origin so fetch('/api/...'), service workers and storage behave like a website.
-protocol.registerSchemesAsPrivileged([{ scheme: 'cryptodesk', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: 'counterweight', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
 function registerAppProtocol() {
-  protocol.handle('cryptodesk', async (request) => {
+  protocol.handle('counterweight', async (request) => {
     const url = new URL(request.url);
     // The web build calls /api/okx/* for OKX's statistics endpoints; proxy them from the main process.
     if (url.pathname.startsWith('/api/okx/')) {
@@ -70,7 +70,7 @@ function createWindow() {
     y: st.y,
     minWidth: 380,
     minHeight: 480,
-    title: 'CryptoDesk',
+    title: 'Counterweight',
     backgroundColor: '#0d0d0d',
     alwaysOnTop: !!st.alwaysOnTop,
     autoHideMenuBar: true,
@@ -79,7 +79,7 @@ function createWindow() {
   });
   const hash = st.widget === false ? '' : '#widget';
   if (DEV_URL) win.loadURL(`${DEV_URL}/${hash}`);
-  else win.loadURL(`cryptodesk://app/${hash}`);
+  else win.loadURL(`counterweight://app/${hash}`);
 
   win.on('close', () => {
     const b = win.getBounds();
@@ -92,18 +92,18 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (!url.startsWith('cryptodesk://') && !(DEV_URL && url.startsWith(DEV_URL))) {
+    if (!url.startsWith('counterweight://') && !(DEV_URL && url.startsWith(DEV_URL))) {
       e.preventDefault();
       shell.openExternal(url);
     }
   });
-  if (process.env.CRYPTODESK_SHOT) {
+  if (process.env.COUNTERWEIGHT_SHOT) {
     win.webContents.once('did-finish-load', () => {
       setTimeout(async () => {
         const img = await win.capturePage();
-        fs.writeFileSync(process.env.CRYPTODESK_SHOT, img.toPNG());
+        fs.writeFileSync(process.env.COUNTERWEIGHT_SHOT, img.toPNG());
         app.quit();
-      }, Number(process.env.CRYPTODESK_SHOT_DELAY ?? 15000));
+      }, Number(process.env.COUNTERWEIGHT_SHOT_DELAY ?? 15000));
     });
   }
 }
@@ -146,7 +146,7 @@ function buildMenus() {
   if (tray) {
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: 'Show CryptoDesk', click: () => showWindow() },
+        { label: 'Show Counterweight', click: () => showWindow() },
         { label: 'Widget view', click: () => { showWindow(); setView(true); } },
         { label: 'Full desk', click: () => { showWindow(); setView(false); } },
         { label: 'Always on top', type: 'checkbox', checked: onTop, click: toggleAlwaysOnTop },
@@ -170,7 +170,7 @@ function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.png')).resize({ width: 18, height: 18 });
   if (process.platform === 'darwin') icon.setTemplateImage(false);
   tray = new Tray(icon);
-  tray.setToolTip('CryptoDesk');
+  tray.setToolTip('Counterweight');
   tray.on('click', () => showWindow());
 }
 

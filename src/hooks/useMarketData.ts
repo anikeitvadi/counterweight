@@ -258,7 +258,7 @@ export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePre
         try {
           o = await fetchOiHistory(inst, bar, since);
         } catch (e) {
-          console.warn('[CryptoDesk] OKX OI history unavailable, falling back to Delta', e);
+          console.warn('[Counterweight] OKX OI history unavailable, falling back to Delta', e);
           o = await fetchDeltaOi(asset, bar === '1H' ? '1h' : bar, since, Math.floor(Date.now() / 1000));
           src = 'delta';
         }
@@ -283,7 +283,7 @@ export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePre
         if (assetRef.current !== asset) return;
         setLiquidations((cur) => mergeLiq(cur, rows));
       } catch (e) {
-        console.warn('[CryptoDesk] liquidation history unavailable', e);
+        console.warn('[Counterweight] liquidation history unavailable', e);
       }
     },
     LIQ_MS,
@@ -302,7 +302,7 @@ export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePre
         const d = await fetchDvolHistory(dvolCcy, 365);
         if (assetRef.current === asset) setDvol(d);
       } catch (e) {
-        console.warn('[CryptoDesk] DVOL unavailable', e);
+        console.warn('[Counterweight] DVOL unavailable', e);
       }
     },
     DVOL_MS,

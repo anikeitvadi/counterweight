@@ -2,7 +2,7 @@ import type { Liquidation } from '../api/okx';
 import { fmtPct, fmtPrice, fmtUsd } from './format';
 import type { LiqCluster } from './liquidation';
 
-export type AlertKind = 'cluster' | 'maxpain' | 'flip' | 'funding' | 'liq';
+export type AlertKind = 'cluster' | 'maxpain' | 'flip' | 'funding' | 'liq' | 'sweep';
 
 export interface AlertRules {
   enabled: boolean;
@@ -18,6 +18,9 @@ export interface AlertRules {
   /** Fire on a single liquidation at least this big (USD). */
   bigLiq: boolean;
   bigLiqUsd: number;
+  /** Fire when price trades through an estimated band at least this big (USD). */
+  sweep: boolean;
+  sweepUsd: number;
   sound: boolean;
   notify: boolean;
 }
@@ -33,6 +36,8 @@ export const DEFAULT_RULES: AlertRules = {
   fundingPct: 0.05,
   bigLiq: true,
   bigLiqUsd: 1_000_000,
+  sweep: true,
+  sweepUsd: 1_000_000,
   sound: true,
   notify: true,
 };
@@ -64,10 +69,12 @@ export interface AlertInput {
   /** Funding per 8h window, in percent. */
   fundingPct: number | null;
   liquidations: Liquidation[];
+  /** Bands price has just traded through (estimated), newest first. */
+  sweeps?: Array<{ ts: number; price: number; usd: number; side: 'long' | 'short' }>;
   now: number;
 }
 
-const COOLDOWN: Record<AlertKind, number> = { cluster: 30 * 60_000, maxpain: 15 * 60_000, flip: 15 * 60_000, funding: 8 * 3600_000, liq: 0 };
+const COOLDOWN: Record<AlertKind, number> = { cluster: 30 * 60_000, maxpain: 15 * 60_000, flip: 15 * 60_000, funding: 8 * 3600_000, liq: 0, sweep: 0 };
 
 function crossed(prev: number | null, cur: number, level: number | null): boolean {
   return prev !== null && level !== null && prev !== cur && (prev - level) * (cur - level) <= 0 && cur !== prev;
@@ -111,6 +118,12 @@ export function evaluateAlerts(input: AlertInput, rules: AlertRules, state: Aler
       if (l.usd >= rules.bigLiqUsd) {
         fire('liq', `liq:${l.ts}:${l.price}`, `${a}: ${fmtUsd(l.usd)} ${l.side} liquidated at ${fmtPrice(l.price)}`, new Date(l.ts).toLocaleTimeString('en-GB'));
       }
+    }
+  }
+  if (rules.enabled && rules.sweep && input.sweeps) {
+    for (const s of input.sweeps) {
+      if (s.usd < rules.sweepUsd || input.now - s.ts > 120_000) continue;
+      fire('sweep', `sweep:${s.ts}:${Math.round(s.price)}:${s.side}`, `${a}: ${fmtUsd(s.usd)} of ${s.side}s cleared at ${fmtPrice(s.price)}`, `Price traded through the band; ${s.side === 'long' ? 'longs' : 'shorts'} below it are gone.`);
     }
   }
   for (const l of input.liquidations) if (!seen.has(l.ts)) seenLiq.push(l.ts);

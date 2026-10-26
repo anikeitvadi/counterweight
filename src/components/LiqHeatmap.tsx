@@ -6,6 +6,7 @@ import { GLOSSARY } from '../lib/glossary';
 import { paletteCss, type Palette } from '../lib/heatmapSeries';
 import { currentClusters, type Heatmap, type LiqModel, type LiqSide } from '../lib/liquidation';
 import type { StrikeOi } from '../lib/options';
+import type { Sweep } from '../lib/chartPrimitives';
 import { HeatmapChart } from './HeatmapChart';
 import { DataTable, Panel } from './Panel';
 
@@ -33,6 +34,11 @@ export interface HeatmapPanelProps {
   walls: { rows: StrikeOi[]; maxPain: number | null; flip: number | null; unit: string } | null;
   showWalls: boolean;
   onShowWalls: (v: boolean) => void;
+  showLabels: boolean;
+  onShowLabels: (v: boolean) => void;
+  showProfile: boolean;
+  onShowProfile: (v: boolean) => void;
+  sweeps: Sweep[];
   windowKey: string;
   drag?: { id: string; onDragStart: (id: string) => void; onDrop: (id: string) => void; dragging: boolean };
 }
@@ -84,6 +90,8 @@ export function LiqHeatmap(p: HeatmapPanelProps) {
           <div className="seg small" role="group" aria-label="Overlays">
             <button className={p.showLiquidations ? 'on' : ''} onClick={() => p.onShowLiquidations(!p.showLiquidations)} title="Actual liquidations from the exchange feed">Liqs</button>
             <button className={p.showWalls ? 'on' : ''} onClick={() => p.onShowWalls(!p.showWalls)} title="Option open interest by strike on the same price axis, with max pain and gamma flip">Walls</button>
+            <button className={p.showLabels ? 'on' : ''} onClick={() => p.onShowLabels(!p.showLabels)} title="Label the strongest bands and show the distance to the nearest cluster above and below the price">Labels</button>
+            <button className={p.showProfile ? 'on' : ''} onClick={() => p.onShowProfile(!p.showProfile)} title="Side profile: live liquidation notional by price at the right edge">Profile</button>
           </div>
           <label className="slider" title="Hide levels weaker than this share of the strongest">
             <span>Threshold {p.threshold.toFixed(2)}</span>
@@ -97,6 +105,7 @@ export function LiqHeatmap(p: HeatmapPanelProps) {
           <HeatmapChart
             heatmap={heatmap} side={side} palette={p.palette} threshold={p.threshold} theme={p.theme} spot={spot} height={H} windowKey={p.windowKey} up={p.up} down={p.down}
             liquidations={p.liquidations} showLiquidations={p.showLiquidations} walls={p.walls} showWalls={p.showWalls}
+            showLabels={p.showLabels} showProfile={p.showProfile} sweeps={p.sweeps}
           />
         ) : (
           <div className="empty" style={{ height: H }}>

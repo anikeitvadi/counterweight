@@ -13,6 +13,7 @@ import { StatTiles } from './components/StatTiles';
 import { ASSET_NAME, LiveWidgetCard, UNIT, WidgetCard } from './components/WidgetCard';
 import { LeanStrip } from './components/LeanStrip';
 import { useChainLeans } from './hooks/useChainLeans';
+import { useSweeps } from './hooks/useSweeps';
 import { leanTone } from './components/RatioPanel';
 import { TermStructure } from './components/TermStructure';
 import { useAlerts } from './hooks/useAlerts';
@@ -83,9 +84,13 @@ export function App() {
   const [threshold, setThreshold] = useLocalStorage<number>('cd.threshold2', 0.05);
   const [showLiq, setShowLiq] = useLocalStorage<boolean>('cd.showLiq', true);
   const [showWalls, setShowWalls] = useLocalStorage<boolean>('cd.showWalls', false);
+  const [showLabels, setShowLabels] = useLocalStorage<boolean>('cd.showLabels', true);
+  const [showProfile, setShowProfile] = useLocalStorage<boolean>('cd.showProfile', true);
   const [oiUsd, setOiUsd] = useLocalStorage<boolean>('cd.oiUsd', true);
   const [oiMetric, setOiMetric] = useLocalStorage<'oi' | 'vol'>('cd.oiMetric', 'oi');
-  const [rules, setRules] = useLocalStorage<AlertRules>('cd.alerts.rules', DEFAULT_RULES);
+  const [storedRules, setRules] = useLocalStorage<AlertRules>('cd.alerts.rules', DEFAULT_RULES);
+  // Rules saved by an older version lack newer keys; defaults fill them in.
+  const rules: AlertRules = { ...DEFAULT_RULES, ...storedRules };
   // Expiry scope as Delta's code, so D1 stays D1 across assets and venues; every session opens on the front daily.
   const [expirySel, setExpirySel] = useState<ExpirySel>('D1');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -228,6 +233,7 @@ export function App() {
     return realizedVol(closes, perDay * 365);
   }, [data.price, data.secPerBar]);
   const { heatmap, computing } = useHeatmap(data.price, data.oi, model);
+  const sweeps = useSweeps(heatmap, perpPrice, `${asset}:${range}`);
   const walls = useMemo(
     () => ({
       rows: oiRows.filter((r) => r.callOi + r.putOi > 0).map((r) => (oiUsd ? { ...r, callOi: r.callOiUsd, putOi: r.putOiUsd } : r)),
@@ -249,9 +255,10 @@ export function App() {
       flip: gex.flip,
       fundingPct: data.perp ? data.perp.fundingRate * 100 : null,
       liquidations: data.liquidations.slice(-200),
+      sweeps,
       now: Date.now(),
     };
-  }, [asset, perpPrice, heatmap, frontMaxPain, gex.flip, data.perp, data.liquidations]);
+  }, [asset, perpPrice, heatmap, frontMaxPain, gex.flip, data.perp, data.liquidations, sweeps]);
   const alerts = useAlerts(rules, alertInput);
   // Header strip: the desk's own asset comes from the live feed; the others poll just their chain.
   const stripOthers = ASSETS.filter((a) => a !== asset && stripAssets.includes(a));
@@ -347,7 +354,8 @@ export function App() {
               theme={theme} up={SERIES[theme].up} down={SERIES[theme].down} loading={data.loading}
               error={data.price.length === 0 && data.error ? data.error : null} onRetry={refreshAll}
               liquidations={data.liquidations} showLiquidations={showLiq} onShowLiquidations={setShowLiq}
-              walls={walls} showWalls={showWalls} onShowWalls={setShowWalls} windowKey={`${asset}:${range}`} drag={dragProps(key)}
+              walls={walls} showWalls={showWalls} onShowWalls={setShowWalls} showLabels={showLabels} onShowLabels={setShowLabels} showProfile={showProfile} onShowProfile={setShowProfile} sweeps={sweeps}
+              windowKey={`${asset}:${range}`} drag={dragProps(key)}
             />
           </ErrorBoundary>
         );

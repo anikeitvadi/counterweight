@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-10-26
+
+- **Heatmap labels.** The strongest bands carry their size and level, and dashed leader lines run from the price to
+  the nearest cluster above and below with the distance, so the map answers "how far to the pain" without the axis.
+- **Side profile.** Live liquidation notional by price at the right edge, with totals above and below the price.
+- **Sweeps.** When price trades through an estimated band it flashes for a few seconds and, with alerts on, logs
+  "$4.0M of shorts cleared at 82,085". New rule with its own minimum size.
+- **Desktop updates.** The Windows build is now a one-click installer that updates itself from GitHub Releases;
+  Help → Check for updates… does it on demand. Releases are built by CI on tag push; signing switches on when the
+  certificate secrets exist (see docs/RELEASING.md).
+- New icon: the hero's split bar on the near-black surface.
 
 - The tab title carries ratio, direction and max pain for every asset in the strip, active asset first.
 - The refresh button now restarts every feed on screen (desk, extra widget cards, header strip), not just the desk's.

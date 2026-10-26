@@ -1,7 +1,8 @@
 // Counterweight desktop shell: loads the built web app, talks to the exchanges directly
 // (no relay needed — CORS headers are added in-process), keeps a tray icon and an
 // always-on-top option so it can sit beside a trading screen.
-const { app, BrowserWindow, Menu, Tray, nativeImage, shell, session, protocol, net } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, nativeImage, shell, session, protocol, net } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
@@ -13,6 +14,47 @@ const STATE_FILE = () => path.join(app.getPath('userData'), 'window.json');
 
 let win = null;
 let tray = null;
+
+// ── Auto-update: GitHub Releases carry the installers and the update manifests (latest.yml / latest-mac.yml).
+// Windows updates work for the NSIS install; macOS updates require a signed build (Squirrel refuses unsigned),
+// so until a certificate exists the Mac check just reports "up to date".
+const UPDATE_CHECK_MS = 6 * 3600_000;
+let updateReady = null;
+function setupUpdates() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReady = info.version;
+    buildMenus();
+    dialog
+      .showMessageBox(win ?? undefined, {
+        type: 'info',
+        message: `Counterweight ${info.version} is ready`,
+        detail: 'It installs when you restart. Restart now?',
+        buttons: ['Restart now', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => response === 0 && autoUpdater.quitAndInstall());
+  });
+  autoUpdater.on('error', (e) => console.warn('[update]', e?.message ?? e));
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 10_000);
+  setInterval(check, UPDATE_CHECK_MS);
+}
+async function checkForUpdatesManually() {
+  if (!app.isPackaged) return dialog.showMessageBox({ message: 'Updates only apply to the installed app.' });
+  if (updateReady) return autoUpdater.quitAndInstall();
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    const v = r?.updateInfo?.version;
+    if (!v || v === app.getVersion()) await dialog.showMessageBox(win ?? undefined, { message: `Counterweight ${app.getVersion()} is up to date.` });
+    else await dialog.showMessageBox(win ?? undefined, { message: `Downloading Counterweight ${v}…`, detail: 'You will be asked to restart when it is ready.' });
+  } catch (e) {
+    await dialog.showMessageBox(win ?? undefined, { type: 'warning', message: 'Could not check for updates.', detail: String(e?.message ?? e) });
+  }
+}
 
 function loadState() {
   try {
@@ -71,7 +113,7 @@ function createWindow() {
     minWidth: 380,
     minHeight: 480,
     title: 'Counterweight',
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#09090b',
     alwaysOnTop: !!st.alwaysOnTop,
     autoHideMenuBar: true,
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
@@ -139,7 +181,15 @@ function buildMenus() {
     ...(process.platform === 'darwin' ? [{ label: app.name, submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }, { role: 'quit' }] }] : []),
     { label: 'View', submenu: viewItems },
     { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'close' }] },
-    { label: 'Help', submenu: [{ label: 'Keyboard shortcuts', click: () => win?.webContents.executeJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))") }] },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Keyboard shortcuts', click: () => win?.webContents.executeJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))") },
+        { type: 'separator' },
+        { label: updateReady ? `Restart to install ${updateReady}` : 'Check for updates…', click: () => checkForUpdatesManually() },
+        { label: `Version ${app.getVersion()}`, enabled: false },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
@@ -184,6 +234,7 @@ app.whenReady().then(() => {
   createTray();
   createWindow();
   buildMenus();
+  setupUpdates();
   app.on('activate', () => showWindow());
 });
 

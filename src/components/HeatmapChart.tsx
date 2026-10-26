@@ -4,10 +4,10 @@ import {
   type IChartApi, type IPriceLine, type ISeriesApi, type MouseEventParams, type UTCTimestamp,
 } from 'lightweight-charts';
 import type { Liquidation } from '../api/okx';
-import { LiquidationDots, OptionsWalls } from '../lib/chartPrimitives';
+import { BandLabels, LiqProfile, LiquidationDots, OptionsWalls, SweepFlash, type Sweep } from '../lib/chartPrimitives';
 import { fmtPrice, fmtUsd } from '../lib/format';
 import { HeatmapPrimitive, type HeatmapGrid, type Palette } from '../lib/heatmapSeries';
-import type { Heatmap, LiqSide } from '../lib/liquidation';
+import { currentClusters, type Heatmap, type LiqSide } from '../lib/liquidation';
 import type { StrikeOi } from '../lib/options';
 
 export interface HoverInfo {
@@ -40,11 +40,17 @@ interface Props {
   showLiquidations: boolean;
   walls: { rows: StrikeOi[]; maxPain: number | null; flip: number | null; unit: string } | null;
   showWalls: boolean;
+  /** Labels on the strongest bands + leader lines to the nearest cluster above and below the price. */
+  showLabels: boolean;
+  /** Side profile: live notional by price at the right edge. */
+  showProfile: boolean;
+  /** Bands price just traded through; each flashes for a few seconds. */
+  sweeps: Sweep[];
 }
 
 const THEME = {
-  dark: { bg: '#111113', text: '#63636b', border: '#2a2a2f', cross: '#a1a1aa', label: '#1f1f23', now: '#f4f4f5', ring: 'rgba(0,0,0,0.65)', wallText: '#e4e4e7', line: 'rgba(255,255,255,0.5)' },
-  light: { bg: '#ffffff', text: '#8b8b94', border: '#d4d4d8', cross: '#52525b', label: '#e4e4e7', now: '#09090b', ring: 'rgba(255,255,255,0.8)', wallText: '#09090b', line: 'rgba(9,9,11,0.5)' },
+  dark: { bg: '#111113', text: '#63636b', border: '#2a2a2f', cross: '#a1a1aa', label: '#1f1f23', now: '#f4f4f5', ring: 'rgba(0,0,0,0.65)', wallText: '#e4e4e7', line: 'rgba(255,255,255,0.5)', backing: 'rgba(9,9,11,0.8)', ink: '#f4f4f5' },
+  light: { bg: '#ffffff', text: '#8b8b94', border: '#d4d4d8', cross: '#52525b', label: '#e4e4e7', now: '#09090b', ring: 'rgba(255,255,255,0.8)', wallText: '#09090b', line: 'rgba(9,9,11,0.5)', backing: 'rgba(255,255,255,0.88)', ink: '#09090b' },
 };
 
 /** Shift a UTC timestamp so lightweight-charts (which formats in UTC) displays local wall time. */
@@ -81,7 +87,7 @@ function buildGrid(h: Heatmap, side: LiqSide): HeatmapGrid {
   return { bins: h.bins, priceMin: h.priceMin, binSize: h.binSize, values, cap, lo, hi, viewLo: tLo * 0.953, viewHi: tHi * 1.047 };
 }
 
-export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, height, windowKey, up, down, liquidations, showLiquidations, walls, showWalls }: Props) {
+export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, height, windowKey, up, down, liquidations, showLiquidations, walls, showWalls, showLabels, showProfile, sweeps }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const candles = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -90,6 +96,9 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
   const nowLine = useRef<IPriceLine | null>(null);
   const dots = useRef<LiquidationDots | null>(null);
   const wallsRef = useRef<OptionsWalls | null>(null);
+  const labelsRef = useRef<BandLabels | null>(null);
+  const profileRef = useRef<LiqProfile | null>(null);
+  const flashRef = useRef<SweepFlash | null>(null);
   const fitted = useRef<string>('');
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [armed, setArmed] = useState(false);
@@ -173,9 +182,18 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     hp.setOptions({ palette, theme, threshold, gamma: 1 });
     const d = new LiquidationDots();
     const w = new OptionsWalls();
+    const fl = new SweepFlash();
+    const pr = new LiqProfile();
+    const bl = new BandLabels();
     cs.attachPrimitive(hp);
+    cs.attachPrimitive(fl);
     cs.attachPrimitive(d);
     cs.attachPrimitive(w);
+    cs.attachPrimitive(pr);
+    cs.attachPrimitive(bl);
+    flashRef.current = fl;
+    profileRef.current = pr;
+    labelsRef.current = bl;
     chart.current = c;
     heat.current = hp;
     candles.current = cs;
@@ -210,6 +228,9 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
       closeLine.current = null;
       dots.current = null;
       wallsRef.current = null;
+      labelsRef.current = null;
+      profileRef.current = null;
+      flashRef.current = null;
       fitted.current = '';
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,7 +253,10 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     closeLine.current?.applyOptions({ color: t.line });
     dots.current?.setOptions({ longColor: up, shortColor: down, ring: t.ring });
     wallsRef.current?.setOptions({ callColor: up, putColor: down, text: t.wallText, maxPainColor: t.cross, flipColor: t.text });
-  }, [theme, palette, threshold, up, down]);
+    labelsRef.current?.setOptions({ longColor: up, shortColor: down, text: t.ink, muted: t.text, backing: t.backing, rightInset: showProfile ? 0.12 * (box.current?.clientWidth ?? 800) : 0 });
+    profileRef.current?.setOptions({ longColor: up, shortColor: down, text: t.ink, backing: t.backing });
+    flashRef.current?.setOptions({ longColor: up, shortColor: down });
+  }, [theme, palette, threshold, up, down, showProfile]);
 
   // Heatmap + candles.
   useEffect(() => {
@@ -273,6 +297,34 @@ export function HeatmapChart({ heatmap, side, palette, threshold, theme, spot, h
     if (!showWalls || !walls) return w.setData({ rows: [], maxPain: null, flip: null, unit: '' });
     w.setData(walls);
   }, [walls, showWalls]);
+
+  // Band labels + leader lines, and the side profile, both from the latest column.
+  useEffect(() => {
+    const bl = labelsRef.current;
+    const pr = profileRef.current;
+    if (!bl || !pr) return;
+    if (!heatmap || !(spot > 0)) {
+      bl.setData({ clusters: [], nearestAbove: null, nearestBelow: null, spot: 0 });
+      pr.setData({ long: null, short: null, priceMin: 0, binSize: 1, bins: 0, spot: 0 });
+      return;
+    }
+    if (showLabels) {
+      const strongest = currentClusters(heatmap, spot, 3);
+      const nearest = currentClusters(heatmap, spot, 1);
+      bl.setData({ clusters: strongest, nearestAbove: nearest.find((c) => c.side === 'short') ?? null, nearestBelow: nearest.find((c) => c.side === 'long') ?? null, spot });
+    } else bl.setData({ clusters: [], nearestAbove: null, nearestBelow: null, spot: 0 });
+    if (showProfile) {
+      const col = (heatmap.times.length - 1) * heatmap.bins;
+      const long = side === 'short' ? new Float32Array(heatmap.bins) : heatmap.long.slice(col, col + heatmap.bins);
+      const short = side === 'long' ? new Float32Array(heatmap.bins) : heatmap.short.slice(col, col + heatmap.bins);
+      pr.setData({ long, short, priceMin: heatmap.priceMin, binSize: heatmap.binSize, bins: heatmap.bins, spot });
+    } else pr.setData({ long: null, short: null, priceMin: 0, binSize: 1, bins: 0, spot: 0 });
+  }, [heatmap, spot, side, showLabels, showProfile]);
+
+  // Sweep flashes.
+  useEffect(() => {
+    flashRef.current?.setData(sweeps, heatmap?.binSize ?? 1);
+  }, [sweeps, heatmap]);
 
   // Current price line.
   useEffect(() => {

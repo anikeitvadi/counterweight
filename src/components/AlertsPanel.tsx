@@ -52,6 +52,10 @@ export function AlertsPanel({ rules, onRules, log, permission, onRequestPermissi
           <div className="sub-rules">
             <Num label="|funding| ≥" value={rules.fundingPct} step={0.01} min={0} onChange={(v) => set({ fundingPct: v })} suffix="% per 8h" />
           </div>
+          <label className="chk"><input type="checkbox" checked={rules.sweep} onChange={(e) => set({ sweep: e.target.checked })} /> Band swept (price traded through an estimated cluster)</label>
+          <div className="sub-rules">
+            <Num label="≥" value={rules.sweepUsd / 1e6} step={0.25} min={0} onChange={(v) => set({ sweepUsd: v * 1e6 })} suffix="$M" />
+          </div>
           <label className="chk"><input type="checkbox" checked={rules.bigLiq} onChange={(e) => set({ bigLiq: e.target.checked })} /> Single large liquidation</label>
           <div className="sub-rules">
             <Num label="≥" value={rules.bigLiqUsd / 1e6} step={0.25} min={0} onChange={(v) => set({ bigLiqUsd: v * 1e6 })} suffix="$M" />

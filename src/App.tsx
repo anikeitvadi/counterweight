@@ -26,7 +26,7 @@ import type { Palette } from './lib/heatmapSeries';
 import { ivRank } from './lib/ivrank';
 import { currentClusters, type LiqModel, type LiqSide } from './lib/liquidation';
 import {
-  atmIv, expectedMove, expiryCodes, fmtLean, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25, smile, termStructure,
+  atmIv, expectedMove, expiryCodes, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25, smile, termStructure,
   type ExpirySel,
 } from './lib/options';
 
@@ -194,7 +194,10 @@ export function App() {
     setSettingsOpen((v) => !v);
   };
 
-  const data = useMarketData(asset, range, venuePref);
+  // One refresh counter for everything on screen: the desk feed, the extra widget cards and the header strip.
+  const [tick, setTick] = useState(0);
+  const refreshAll = () => setTick((t) => t + 1);
+  const data = useMarketData(asset, range, venuePref, tick);
   // Options maths uses the options venue's index; the perp tile shows OKX.
   const spot = data.options[0]?.spot || data.perp?.last || 0;
   const perpPrice = data.perp?.last || spot;
@@ -251,8 +254,8 @@ export function App() {
   }, [asset, perpPrice, heatmap, frontMaxPain, gex.flip, data.perp, data.liquidations]);
   const alerts = useAlerts(rules, alertInput);
   // Header strip: the desk's own asset comes from the live feed; the others poll just their chain.
-  const stripOthers = widget ? [] : ASSETS.filter((a) => a !== asset && stripAssets.includes(a));
-  const otherLeans = useChainLeans(stripOthers, venuePref, expirySel);
+  const stripOthers = ASSETS.filter((a) => a !== asset && stripAssets.includes(a));
+  const otherLeans = useChainLeans(stripOthers, venuePref, expirySel, tick);
   const primaryLean = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
   const stripItems = ASSETS.filter((a) => stripAssets.includes(a)).map((a) => ({
     asset: a,
@@ -268,10 +271,20 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [asset, spot, frontMaxPain, heatmap, perpPrice, data.perp]);
 
+  // Tab title: ratio · direction · max pain for every asset in the strip, the desk's asset first, so the read
+  // survives in a minimised window or a pinned tab.
+  const tabTitle = [...stripItems].sort((a, b) => (a.asset === asset ? -1 : b.asset === asset ? 1 : 0))
+    .filter((i) => i.read?.lean)
+    .map(({ asset: a, read }) => {
+      const l = read!.lean!;
+      const arrow = read!.tone === 'short' ? '▼' : read!.tone === 'long' ? '▲' : '–';
+      const mp = read!.maxPain != null ? ` MP ${fmtPrice(read!.maxPain)}` : '';
+      return `${ASSET_NAME[a]} 1:${Number.isFinite(l.ratio) ? l.ratio.toFixed(2) : '∞'} ${arrow}${mp}`;
+    })
+    .join(' · ');
   useEffect(() => {
-    const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
-    document.title = l && perpPrice > 0 ? `${ASSET_NAME[asset]} ${fmtPrice(perpPrice)} · ${l.fewer === 'calls' ? 'C:P' : 'P:C'} ${fmtLean(l, 1)} — Counterweight` : 'Counterweight';
-  }, [asset, pcr, perpPrice]);
+    document.title = tabTitle ? `${tabTitle} — Counterweight` : 'Counterweight';
+  }, [tabTitle]);
 
   const lastGood = Math.max(data.updatedAt ?? 0, data.tickAt ?? 0) || null;
   const statusTitle = data.error ? `Last error: ${data.error}` : data.health === 'live' ? 'Streaming OKX perp over websocket; options and candles refresh every 30–60s' : 'Refreshing over REST every 30–60s';
@@ -332,7 +345,7 @@ export function App() {
               heatmap={heatmap} computing={computing} spot={perpPrice} venue={data.oiSource === 'okx' ? 'OKX' : 'Delta (fallback)'}
               side={side} onSide={setSide} model={model} onModel={setModel} palette={palette} threshold={threshold} onThreshold={setThreshold}
               theme={theme} up={SERIES[theme].up} down={SERIES[theme].down} loading={data.loading}
-              error={data.price.length === 0 && data.error ? data.error : null} onRetry={data.refresh}
+              error={data.price.length === 0 && data.error ? data.error : null} onRetry={refreshAll}
               liquidations={data.liquidations} showLiquidations={showLiq} onShowLiquidations={setShowLiq}
               walls={walls} showWalls={showWalls} onShowWalls={setShowWalls} windowKey={`${asset}:${range}`} drag={dragProps(key)}
             />
@@ -439,7 +452,7 @@ export function App() {
         {data.fromCache && <span className="cache-note" title="Painted from the last session's data; refreshing now">cached · refreshing…</span>}
         <span className="spacer" />
         <div className="actions">
-          <button className="icon-btn" title="Refresh now" aria-label="Refresh now" onClick={data.refresh}>
+          <button className="icon-btn" title="Refresh now: every feed on screen" aria-label="Refresh now" onClick={refreshAll}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></svg>
           </button>
           <button className={`icon-btn${widget ? ' on' : ''}`} title="Widget: ratio + key numbers only (w)" aria-label="Toggle widget mode" aria-pressed={widget} onClick={toggleWidget}>
@@ -519,7 +532,7 @@ export function App() {
       {(data.health === 'offline' || (data.error && data.errorAt && now - data.errorAt < 90_000)) && (
         <div className="banner" role="alert">
           {data.health === 'offline' ? 'You are offline — showing the last data received.' : `Data problem: ${data.error}. Retrying automatically.`}
-          <button className="link" onClick={data.refresh}>Retry now</button>
+          <button className="link" onClick={refreshAll}>Retry now</button>
         </div>
       )}
 
@@ -529,7 +542,7 @@ export function App() {
             a === asset ? (
               <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} />
             ) : (
-              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} />
+              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} tick={tick} />
             ),
           )}
         </div>

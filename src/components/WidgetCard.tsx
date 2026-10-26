@@ -61,10 +61,12 @@ export function WidgetCard({ asset, data, expirySel, model }: CardProps) {
 interface LiveProps extends Omit<CardProps, 'data'> {
   range: RangeKey;
   venuePref: VenuePref;
+  /** Header refresh counter, so the button restarts this card's feed too. */
+  tick?: number;
 }
 
 /** Same card with its own data feed: used for every widget asset except the primary one, whose feed the app already owns. */
-export function LiveWidgetCard({ range, venuePref, ...rest }: LiveProps) {
-  const data = useMarketData(rest.asset, range, venuePref);
+export function LiveWidgetCard({ range, venuePref, tick, ...rest }: LiveProps) {
+  const data = useMarketData(rest.asset, range, venuePref, tick);
   return <WidgetCard data={data} {...rest} />;
 }

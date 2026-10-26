@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The tab title carries ratio, direction and max pain for every asset in the strip, active asset first.
+- The refresh button now restarts every feed on screen (desk, extra widget cards, header strip), not just the desk's.
+
 - **Header strip.** Every chosen asset's ratio, direction and max pain in the header, scoped to the header expiry;
   click one to open it. Which assets appear is set in the settings popover. Non-active assets poll only their options
   chain once a minute.

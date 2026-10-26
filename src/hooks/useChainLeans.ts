@@ -19,7 +19,7 @@ export interface ChainLean {
  * a minute, nothing streamed), scoped to the same expiry code as the header, so the strip shows every asset's lean,
  * direction and max pain without running a full market feed for each.
  */
-export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: ExpirySel): Partial<Record<Asset, ChainLean>> {
+export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: ExpirySel, tick = 0): Partial<Record<Asset, ChainLean>> {
   const [state, setState] = useState<Partial<Record<Asset, ChainLean>>>({});
   const key = assets.join(',');
 
@@ -60,7 +60,7 @@ export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: 
     };
     // `key` stands in for the assets array so a new array with the same members does not restart polling
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, venuePref, expirySel]);
+  }, [key, venuePref, expirySel, tick]);
 
   return state;
 }

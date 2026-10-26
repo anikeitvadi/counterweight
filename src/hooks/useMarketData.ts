@@ -131,7 +131,8 @@ interface CachedMarket {
  * Options from Deribit (BTC, ETH) or Delta (gold); perp, candles, OI and liquidations from OKX;
  * DVOL from Deribit. The last good state is cached on-device so the next open paints instantly.
  */
-export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePref = 'deribit'): MarketData {
+/** `tick` is an outside refresh counter (the header button) so every feed on screen restarts together. */
+export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePref = 'deribit', tick = 0): MarketData {
   const [options, setOptions] = useState<OptionTicker[]>([]);
   const [perp, setPerp] = useState<PerpState | null>(null);
   const [price, setPrice] = useState<Candle[]>([]);
@@ -148,7 +149,8 @@ export function useMarketData(asset: Asset, range: RangeKey, venuePref: VenuePre
   const [errorAt, setErrorAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [fromCache, setFromCache] = useState(false);
-  const [bump, setBump] = useState(0);
+  const [ownBump, setBump] = useState(0);
+  const bump = ownBump + tick;
   const [, setClock] = useState(0);
   const online = useOnline();
   const assetRef = useRef(asset);

@@ -96,7 +96,8 @@ export function RatioPanel({ options, history, venue, unit, loading, compact, se
 
   return (
     <Panel
-      title={`${context.asset} · ${scopeShort} · ${venue}`}
+      lead={context.asset}
+      title={`${scopeShort} · ${venue}`}
       info={GLOSSARY.ratio}
       drag={drag}
       loading={loading}

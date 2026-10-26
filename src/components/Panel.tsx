@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface Props {
   title: string;
+  /** Bright lead-in before the title, e.g. the asset, so cards can be told apart at a glance. */
+  lead?: string;
   sub?: string;
   wide?: boolean;
   loading?: boolean;
@@ -15,7 +17,8 @@ interface Props {
   children: ReactNode;
 }
 
-export function Panel({ title, sub, wide, loading, controls, table, info, drag, children }: Props) {
+export function Panel({ title, lead, sub, wide, loading, controls, table, info, drag, children }: Props) {
+  const fullTitle = lead ? `${lead} · ${title}` : title;
   const [showTable, setShowTable] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [over, setOver] = useState(false);
@@ -48,12 +51,12 @@ export function Panel({ title, sub, wide, loading, controls, table, info, drag, 
             ⋮⋮
           </span>
         )}
-        <h3>{title}</h3>
+        <h3>{lead && <span className="lead">{lead}</span>}{lead && ' · '}{title}</h3>
         {info && (
           <div className="info-wrap" ref={infoRef}>
-            <button className="info-btn" aria-label={`About ${title}`} aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>i</button>
+            <button className="info-btn" aria-label={`About ${fullTitle}`} aria-expanded={showInfo} onClick={() => setShowInfo((v) => !v)}>i</button>
             {showInfo && (
-              <div className="info-pop" role="dialog" aria-label={`About ${title}`}>
+              <div className="info-pop" role="dialog" aria-label={`About ${fullTitle}`}>
                 <p><b>What it is.</b> {info.what}</p>
                 <p><b>How to read it.</b> {info.read}</p>
               </div>

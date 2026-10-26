@@ -145,6 +145,7 @@ select.sel {
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-panel); padding: 18px 20px 16px; min-width: 0; }
 .panel .ph { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; min-height: 24px; }
 .panel .ph h3 { margin: 0; font-size: 10.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.panel .ph h3 .lead { color: var(--ink); font-size: 12px; letter-spacing: 0.12em; }
 .panel .ph .sub { color: var(--muted); font-size: 11.5px; }
 .panel .ph .sub::before { content: '·'; margin-right: 8px; }
 .panel .ph .ctl { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

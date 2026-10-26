@@ -11,6 +11,9 @@ import { OiByStrike } from './components/OiByStrike';
 import { RatioPanel } from './components/RatioPanel';
 import { StatTiles } from './components/StatTiles';
 import { ASSET_NAME, LiveWidgetCard, UNIT, WidgetCard } from './components/WidgetCard';
+import { LeanStrip } from './components/LeanStrip';
+import { useChainLeans } from './hooks/useChainLeans';
+import { leanTone } from './components/RatioPanel';
 import { TermStructure } from './components/TermStructure';
 import { useAlerts } from './hooks/useAlerts';
 import { useHeatmap } from './hooks/useHeatmap';
@@ -72,6 +75,8 @@ export function App() {
   const [extraAssets, setExtraAssets] = useLocalStorage<Asset[]>('cd.widgetAssets', []);
   // Several widget assets stacked (portrait, a side column) or side by side (landscape, a strip above the charts).
   const [widgetLayout, setWidgetLayout] = useLocalStorage<'portrait' | 'landscape'>('cd.widgetLayout', 'portrait');
+  // Assets shown in the header strip (ratio · direction · max pain), independent of which one the desk is on.
+  const [stripAssets, setStripAssets] = useLocalStorage<Asset[]>('cd.strip', ASSETS);
   const [side, setSide] = useLocalStorage<LiqSide>('cd.side', 'all');
   const [model, setModel] = useLocalStorage<LiqModel>('cd.model', 'balanced');
   const [palette, setPalette] = useLocalStorage<Palette>('cd.palette', 'viridis');
@@ -245,6 +250,16 @@ export function App() {
     };
   }, [asset, perpPrice, heatmap, frontMaxPain, gex.flip, data.perp, data.liquidations]);
   const alerts = useAlerts(rules, alertInput);
+  // Header strip: the desk's own asset comes from the live feed; the others poll just their chain.
+  const stripOthers = widget ? [] : ASSETS.filter((a) => a !== asset && stripAssets.includes(a));
+  const otherLeans = useChainLeans(stripOthers, venuePref, expirySel);
+  const primaryLean = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
+  const stripItems = ASSETS.filter((a) => stripAssets.includes(a)).map((a) => ({
+    asset: a,
+    read: a === asset
+      ? { lean: primaryLean, tone: leanTone(primaryLean), maxPain: mp, expiry: selected ? codes.get(selected.expiryMs) ?? 'all' : 'all', updatedAt: Date.now() }
+      : otherLeans[a],
+  }));
   const nearest = heatmap && perpPrice > 0 ? currentClusters(heatmap, perpPrice, 1) : [];
   const readContext = useMemo(() => ({
     asset: ASSET_NAME[asset], spot, maxPain: frontMaxPain,
@@ -373,6 +388,7 @@ export function App() {
           {HEALTH_LABEL[data.health]}
           {lastGood && <span className="age"> · {ageText(lastGood, now)}</span>}
         </span>
+        {!widget && <LeanStrip items={stripItems} active={asset} onPick={(a) => setAsset(a)} />}
         {widget ? (
           <div className="seg" role="group" aria-label="Assets shown" title="Show several assets at once; the first one drives alerts and the tab title">
             {ASSETS.map((a) => (
@@ -460,6 +476,16 @@ export function App() {
               Watch for clusters, max pain, flip, funding, big liquidations
             </label>
             <p className="note">Thresholds and the alert log are in the "Alert settings panel" above.</p>
+            <hr />
+            <h4>Header strip</h4>
+            <div className="seg small" role="group" aria-label="Assets in the header strip">
+              {ASSETS.map((a) => (
+                <button key={a} aria-pressed={stripAssets.includes(a)} className={stripAssets.includes(a) ? 'on' : ''} onClick={() => setStripAssets(stripAssets.includes(a) ? stripAssets.filter((x) => x !== a) : ASSETS.filter((x) => x === a || stripAssets.includes(x)))}>
+                  {ASSET_NAME[a]}
+                </button>
+              ))}
+            </div>
+            <p className="note">Ratio, direction and max pain for each, scoped to the header expiry. Click one to open it.</p>
             <hr />
             <h4>Heatmap colours</h4>
             <div className="seg small" role="group" aria-label="Palette">

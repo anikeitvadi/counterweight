@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Header strip.** Every chosen asset's ratio, direction and max pain in the header, scoped to the header expiry;
+  click one to open it. Which assets appear is set in the settings popover. Non-active assets poll only their options
+  chain once a minute.
+- The asset leads each card header in white so cards read at a glance.
+
 - Fix: Delta gold options settle at 16:00 UTC, not 12:00, so the front gold expiry vanished from the desk every
   afternoon while Delta still listed it. Expiries now come from Delta's per-contract settlement time (cached an hour),
   with a per-asset hour as fallback.

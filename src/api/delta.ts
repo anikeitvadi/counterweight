@@ -8,7 +8,7 @@ export interface OptionTicker {
   symbol: string;
   type: 'call' | 'put';
   strike: number;
-  /** Expiry as a UTC timestamp (ms). Delta settles at 12:00 UTC. */
+  /** Expiry as a UTC timestamp (ms): Delta's settlement time for the contract (12:00 UTC for BTC/ETH, 16:00 UTC for gold). */
   expiryMs: number;
   /** Open interest in underlying units (BTC, ETH, oz). */
   oi: number;
@@ -92,19 +92,50 @@ async function retry<T>(path: string, attempt: number): Promise<T> {
   return getJson<T>(path, attempt + 1);
 }
 
-/** Symbol like `C-BTC-99000-271126` -> expiry 2026-11-27 12:00 UTC. */
-export function parseExpiry(symbol: string): number {
+/** Settlement hour (UTC) per underlying, used only when the products list is unavailable. Delta: crypto 12:00, gold 16:00. */
+export const SETTLE_HOUR_UTC: Record<Asset, number> = { BTC: 12, ETH: 12, XAUT: 16 };
+
+/** Symbol like `C-BTC-99000-271126` -> expiry 2026-11-27 at the asset's settlement hour (UTC). */
+export function parseExpiry(symbol: string, asset?: Asset): number {
   const tail = symbol.split('-').pop() ?? '';
   const dd = parseInt(tail.slice(0, 2), 10);
   const mm = parseInt(tail.slice(2, 4), 10);
   const yy = parseInt(tail.slice(4, 6), 10);
-  return Date.UTC(2000 + yy, mm - 1, dd, 12, 0, 0);
+  return Date.UTC(2000 + yy, mm - 1, dd, asset ? SETTLE_HOUR_UTC[asset] : 12, 0, 0);
+}
+
+type RawProduct = { symbol: string; settlement_time?: string | null };
+const settlementCache = new Map<Asset, { at: number; bySymbol: Map<string, number> }>();
+const SETTLEMENT_TTL = 3600_000;
+
+/**
+ * Exact settlement time per contract from Delta's products list, cached an hour. Gold options settle at a different
+ * hour from crypto, and guessing it drops the front expiry for the afternoon; the products list is the source of truth.
+ * Any failure yields an empty map and the caller falls back to the per-asset hour.
+ */
+async function settlementTimes(asset: Asset): Promise<Map<string, number>> {
+  const hit = settlementCache.get(asset);
+  if (hit && Date.now() - hit.at < SETTLEMENT_TTL) return hit.bySymbol;
+  const bySymbol = new Map<string, number>();
+  try {
+    const products = await getJson<RawProduct[]>(`/products?contract_types=call_options,put_options&underlying_asset_symbols=${asset}&page_size=1000`);
+    for (const p of products) {
+      const ms = p.settlement_time ? Date.parse(p.settlement_time) : NaN;
+      if (Number.isFinite(ms)) bySymbol.set(p.symbol, ms);
+    }
+    settlementCache.set(asset, { at: Date.now(), bySymbol });
+  } catch {
+    /* keep whatever we had; the symbol-date fallback still works */
+    if (hit) return hit.bySymbol;
+  }
+  return bySymbol;
 }
 
 export async function fetchOptions(asset: Asset): Promise<OptionTicker[]> {
-  const raw = await getJson<RawTicker[]>(
-    `/tickers?contract_types=call_options,put_options&underlying_asset_symbols=${asset}`,
-  );
+  const [raw, settle] = await Promise.all([
+    getJson<RawTicker[]>(`/tickers?contract_types=call_options,put_options&underlying_asset_symbols=${asset}`),
+    settlementTimes(asset),
+  ]);
   const now = Date.now();
   return raw
     .filter((r) => r.strike_price)
@@ -112,7 +143,7 @@ export async function fetchOptions(asset: Asset): Promise<OptionTicker[]> {
       symbol: r.symbol,
       type: r.contract_type === 'call_options' ? 'call' : 'put',
       strike: num(r.strike_price),
-      expiryMs: parseExpiry(r.symbol),
+      expiryMs: settle.get(r.symbol) ?? parseExpiry(r.symbol, asset),
       oi: num(r.oi),
       oiUsd: num(r.oi_value_usd),
       volume: num(r.volume),

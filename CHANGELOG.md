@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Fix: Delta gold options settle at 16:00 UTC, not 12:00, so the front gold expiry vanished from the desk every
+  afternoon while Delta still listed it. Expiries now come from Delta's per-contract settlement time (cached an hour),
+  with a per-asset hour as fallback.
+
 ## 0.2.0 — 2026-10-24
 
 - **Renamed to Counterweight.** The app watches gold as well as crypto, and its one idea is that the thin side of

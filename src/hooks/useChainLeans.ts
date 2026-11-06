@@ -16,12 +16,13 @@ export interface ChainLean {
 
 /**
  * The read for assets the desk is not currently showing: only the options chain is fetched (one REST call per asset
- * a minute, nothing streamed), scoped to the same expiry code as the header, so the strip shows every asset's lean,
+ * a minute, nothing streamed), each scoped to that asset's own expiry choice (default D1), so the strip shows every asset's lean,
  * direction and max pain without running a full market feed for each.
  */
-export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: ExpirySel, tick = 0): Partial<Record<Asset, ChainLean>> {
+export function useChainLeans(assets: Asset[], venuePref: VenuePref, expiryBy: Partial<Record<Asset, ExpirySel>>, tick = 0): Partial<Record<Asset, ChainLean>> {
   const [state, setState] = useState<Partial<Record<Asset, ChainLean>>>({});
   const key = assets.join(',');
+  const selKey = assets.map((a) => expiryBy[a] ?? 'D1').join(',');
 
   useEffect(() => {
     if (!assets.length) return;
@@ -35,7 +36,7 @@ export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: 
             const opts = ccy ? await fetchDeribitOptions(ccy) : await fetchOptions(a);
             const groups = groupByExpiry(opts);
             const codes = expiryCodes(groups.map((g) => g.expiryMs));
-            const sel = resolveExpiry(groups, codes, expirySel);
+            const sel = resolveExpiry(groups, codes, expiryBy[a] ?? 'D1');
             const scoped = sel ? [...sel.calls, ...sel.puts] : opts;
             const pcr = scoped.length ? putCallRatio(scoped) : null;
             const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
@@ -58,9 +59,9 @@ export function useChainLeans(assets: Asset[], venuePref: VenuePref, expirySel: 
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
     };
-    // `key` stands in for the assets array so a new array with the same members does not restart polling
+    // `key` / `selKey` stand in for the assets array and the expiry map so a new array with the same members does not restart polling
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, venuePref, expirySel, tick]);
+  }, [key, selKey, venuePref, tick]);
 
   return state;
 }

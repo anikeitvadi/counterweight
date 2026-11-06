@@ -1,7 +1,7 @@
 {
   "name": "counterweight",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,9 +14,9 @@
     "check": "npm run typecheck && npm run test && npm run build",
     "app": "npm run build && electron .",
     "app:dev": "COUNTERWEIGHT_DEV_URL=http://localhost:5180 electron .",
-    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:mac": "npm run build && electron-builder --mac -c.mac.identity=- --publish never",
     "dist:win": "npm run build && electron-builder --win zip --x64 --publish never",
-    "dist:all": "npm run build && electron-builder --mac --win zip --x64 --publish never",
+    "dist:all": "npm run build && electron-builder --mac --win zip --x64 -c.mac.identity=- --publish never",
     "release:ci": "electron-builder --publish always"
   },
   "dependencies": {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 — 2026-11-06
+
+- **Expiry per asset.** Each asset keeps its own expiry choice, since gold lists far fewer dates than BTC/ETH. With
+  several assets in the widget, every card carries its own dropdown listing only that chain's dates; the header strip
+  reads each asset at its own choice (D1 until changed).
+- **Mac download fixed.** The Apple silicon build shipped with a broken stub signature, so macOS reported the
+  downloaded app as "damaged" and would not open it. Builds without a certificate are now ad-hoc signed.
+
 ## 0.3.0 — 2026-10-26
 
 - **Heatmap labels.** The strongest bands carry their size and level, and dashed leader lines run from the price to

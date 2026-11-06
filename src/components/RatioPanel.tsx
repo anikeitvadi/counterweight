@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { OptionTicker } from '../api/delta';
 import type { PcrSample } from '../hooks/useMarketData';
 import { fmtCompact, fmtDateShort, fmtPrice, fmtUsd } from '../lib/format';
@@ -22,6 +22,8 @@ interface Props {
   /** What the Read may talk about besides the ratio (max pain, nearest clusters, funding). */
   context: Omit<ReadContext, 'scope'>;
   drag?: { id: string; onDragStart: (id: string) => void; onDrop: (id: string) => void; dragging: boolean };
+  /** This card's own expiry dropdown (multi-asset widget), shown first among the controls. */
+  expiryControl?: ReactNode;
 }
 
 /**
@@ -53,7 +55,7 @@ const BUCKETS: Array<{ key: ExpiryBucket; label: string; test: (dte: number) => 
 
 const signed = (v: number | null) => (v === null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}`);
 
-export function RatioPanel({ options, history, venue, unit, loading, compact, selectedExpiryMs, codes, context, drag }: Props) {
+export function RatioPanel({ options, history, venue, unit, loading, compact, selectedExpiryMs, codes, context, drag, expiryControl }: Props) {
   const [usd, setUsd] = useLocalStorage<boolean>('cd.ratioUsd', true);
   const [bucket, setBucket] = useLocalStorage<ExpiryBucket>('cd.ratioBucket', 'all');
   const groupsAll = useMemo(() => groupByExpiry(options), [options]);
@@ -104,6 +106,7 @@ export function RatioPanel({ options, history, venue, unit, loading, compact, se
       table={table}
       controls={
         <>
+          {expiryControl}
           {!single && (
             <div className="seg small" role="group" aria-label="Expiry range">
               {BUCKETS.map((x) => (

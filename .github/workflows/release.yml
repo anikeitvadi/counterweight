@@ -50,6 +50,9 @@ jobs:
             echo "CSC_KEY_PASSWORD=$S_CSC_KEY_PASSWORD" >> "$GITHUB_ENV"
           else
             echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+            # Without a certificate, ad-hoc sign the Mac app. Left unsigned, the Apple silicon build carries only the
+            # linker's stub signature, which fails verification, so macOS calls the download "damaged" and refuses it.
+            echo "EB_EXTRA=-c.mac.identity=-" >> "$GITHUB_ENV"
           fi
           if [ -n "$S_APPLE_ID" ]; then
             echo "APPLE_ID=$S_APPLE_ID" >> "$GITHUB_ENV"
@@ -57,6 +60,7 @@ jobs:
             echo "APPLE_TEAM_ID=$S_APPLE_TEAM_ID" >> "$GITHUB_ENV"
           fi
       - name: Package and publish
-        run: npx electron-builder ${{ matrix.args }} --publish always
+        shell: bash
+        run: npx electron-builder ${{ matrix.args }} $EB_EXTRA --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

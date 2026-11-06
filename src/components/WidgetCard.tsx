@@ -7,6 +7,7 @@ import { ivRank } from '../lib/ivrank';
 import { currentClusters, type LiqModel } from '../lib/liquidation';
 import { atmIv, expiryCodes, groupByExpiry, maxPain, resolveExpiry, type ExpirySel } from '../lib/options';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ExpirySelect } from './ExpirySelect';
 import { RatioPanel } from './RatioPanel';
 
 export const ASSET_NAME: Record<Asset, string> = { BTC: 'BTC', ETH: 'ETH', XAUT: 'Gold' };
@@ -16,11 +17,13 @@ interface CardProps {
   asset: Asset;
   data: MarketData;
   expirySel: ExpirySel;
+  /** Set when several assets are shown: the card then carries its own expiry dropdown, listing this chain's dates. */
+  onExpiry?: (sel: ExpirySel) => void;
   model: LiqModel;
 }
 
 /** Widget block for one asset: the ratio first, then only the numbers that change a decision. */
-export function WidgetCard({ asset, data, expirySel, model }: CardProps) {
+export function WidgetCard({ asset, data, expirySel, onExpiry, model }: CardProps) {
   const spot = data.options[0]?.spot || data.perp?.last || 0;
   const perpPrice = data.perp?.last || spot;
   const groups = useMemo(() => groupByExpiry(data.options), [data.options]);
@@ -44,6 +47,7 @@ export function WidgetCard({ asset, data, expirySel, model }: CardProps) {
         <RatioPanel
           options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact
           selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} context={context}
+          expiryControl={onExpiry && <ExpirySelect groups={groups} codes={codes} selected={selected} onChange={onExpiry} asset={name} />}
         />
       </ErrorBoundary>
       <div className="widget-strip tiles">

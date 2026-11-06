@@ -17,6 +17,12 @@ A push to `main` deploys the web app to Vercel on its own; no step is needed for
 - **Windows:** `Counterweight-Setup-<version>.exe` (one-click, per-user, no admin prompt). The zip is still
   attached for anyone who prefers a portable copy, but only the installer receives automatic updates.
 - **macOS:** `Counterweight-<version>-arm64.dmg` (Apple silicon) or `-x64.dmg` (Intel).
+- Everything else on the release (`.blockmap`, `latest.yml`, `latest-mac.yml`) is for the updater; nobody downloads it.
+
+Until the builds are signed, first launch asks once:
+- **Windows:** the browser may say the file "isn't commonly downloaded" → keep it; SmartScreen → More info → Run anyway.
+- **macOS:** open the app, dismiss "Apple could not verify…", then System Settings → Privacy & Security → Open Anyway.
+  Unsigned builds are ad-hoc signed so this works; a build with no signature at all is reported as "damaged".
 
 ## Signing (turns off the SmartScreen and Gatekeeper prompts)
 

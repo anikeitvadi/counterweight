@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ASSETS, type Asset } from './api/delta';
 import { AlertsPanel, Toasts } from './components/AlertsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ExpirySelect } from './components/ExpirySelect';
 import { Panel } from './components/Panel';
 import { FlowPanel } from './components/FlowPanel';
 import { GexChart } from './components/GexChart';
@@ -91,8 +92,11 @@ export function App() {
   const [storedRules, setRules] = useLocalStorage<AlertRules>('cd.alerts.rules', DEFAULT_RULES);
   // Rules saved by an older version lack newer keys; defaults fill them in.
   const rules: AlertRules = { ...DEFAULT_RULES, ...storedRules };
-  // Expiry scope as Delta's code, so D1 stays D1 across assets and venues; every session opens on the front daily.
-  const [expirySel, setExpirySel] = useState<ExpirySel>('D1');
+  // Expiry scope per asset, as Delta's code: each chain lists its own expiries (gold has far fewer than BTC/ETH), so one
+  // shared choice would point the others at a date they don't have. Every session opens on each asset's front daily.
+  const [expiryBy, setExpiryBy] = useState<Partial<Record<Asset, ExpirySel>>>({});
+  const expiryFor = (a: Asset): ExpirySel => expiryBy[a] ?? 'D1';
+  const setExpiryFor = (a: Asset) => (sel: ExpirySel) => setExpiryBy((m) => ({ ...m, [a]: sel }));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [dragId, setDragId] = useState<PanelKey | null>(null);
@@ -209,7 +213,7 @@ export function App() {
 
   const groups = useMemo(() => groupByExpiry(data.options), [data.options]);
   const codes = useMemo(() => expiryCodes(groups.map((g) => g.expiryMs)), [groups]);
-  const selected = resolveExpiry(groups, codes, expirySel);
+  const selected = resolveExpiry(groups, codes, expiryFor(asset));
   const front = groups[0] ?? null;
   const smileGroup = selected ?? front;
   const scoped = useMemo(() => (selected ? [...selected.calls, ...selected.puts] : data.options), [selected, data.options]);
@@ -262,7 +266,7 @@ export function App() {
   const alerts = useAlerts(rules, alertInput);
   // Header strip: the desk's own asset comes from the live feed; the others poll just their chain.
   const stripOthers = ASSETS.filter((a) => a !== asset && stripAssets.includes(a));
-  const otherLeans = useChainLeans(stripOthers, venuePref, expirySel, tick);
+  const otherLeans = useChainLeans(stripOthers, venuePref, expiryBy, tick);
   const primaryLean = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
   const stripItems = ASSETS.filter((a) => stripAssets.includes(a)).map((a) => ({
     asset: a,
@@ -437,14 +441,8 @@ export function App() {
             </button>
           </div>
         )}
-        <select className="sel" value={selected ? codes.get(selected.expiryMs) ?? 'all' : 'all'} onChange={(e) => setExpirySel(e.target.value)} aria-label="Expiry" title="Expiry scope for the ratio and the strike charts. D1 = nearest daily, W = weekly, M = monthly (Delta's codes)">
-          <option value="all">All expiries</option>
-          {groups.map((g) => (
-            <option key={g.expiryMs} value={codes.get(g.expiryMs)}>
-              {codes.get(g.expiryMs)} · {fmtDateShort(g.expiryMs)} · {g.dte < 1 ? `${Math.round(g.dte * 24)}h` : `${Math.round(g.dte)}d`}
-            </option>
-          ))}
-        </select>
+        {/* Several widget cards each carry their own asset's dropdown instead. */}
+        {!(widget && shownAssets.length > 1) && <ExpirySelect groups={groups} codes={codes} selected={selected} onChange={setExpiryFor(asset)} />}
         {asset !== 'XAUT' && (
           <div className="seg" role="group" aria-label="Options venue" title="Which exchange's option chain to analyse. Delta matches the numbers in Delta's own app; Deribit is the deepest market.">
             {(['delta', 'deribit'] as VenuePref[]).map((v) => (
@@ -548,9 +546,9 @@ export function App() {
         <div className={`wgrid ${widgetLayout}`} style={{ '--n': shownAssets.length } as React.CSSProperties}>
           {shownAssets.map((a) =>
             a === asset ? (
-              <WidgetCard key={a} asset={a} data={data} expirySel={expirySel} model={model} />
+              <WidgetCard key={a} asset={a} data={data} expirySel={expiryFor(a)} onExpiry={shownAssets.length > 1 ? setExpiryFor(a) : undefined} model={model} />
             ) : (
-              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expirySel} model={model} tick={tick} />
+              <LiveWidgetCard key={a} asset={a} range={range} venuePref={venuePref} expirySel={expiryFor(a)} onExpiry={setExpiryFor(a)} model={model} tick={tick} />
             ),
           )}
         </div>

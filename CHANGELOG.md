@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — 2026-11-12
+
+- **A date dropdown for every asset in the header strip.** BTC, ETH and Gold each carry their own expiry beside
+  their ratio, listing only that chain's dates; changing one leaves the others alone, and opening an asset keeps its
+  choice. On narrow screens, where the strip is hidden, the single header dropdown stands in.
+- **Releases land in one place.** The release is now created once (as a draft) before the Windows and Mac builds and
+  published after both finish; in 0.3.1 the two builds each created a release and the Windows files missed "latest".
+
 ## 0.3.1 — 2026-11-06
 
 - **Expiry per asset.** Each asset keeps its own expiry choice, since gold lists far fewer dates than BTC/ETH. With

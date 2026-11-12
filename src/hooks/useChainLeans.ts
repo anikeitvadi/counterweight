@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchOptions, type Asset } from '../api/delta';
 import { DERIBIT_CCY, fetchDeribitOptions } from '../api/deribit';
 import { leanTone, type LeanTone } from '../components/RatioPanel';
-import { expiryCodes, groupByExpiry, lean, maxPain, putCallRatio, resolveExpiry, type ExpirySel, type Lean } from '../lib/options';
+import { expiryCodes, expiryOptions, groupByExpiry, lean, maxPain, putCallRatio, resolveExpiry, type ExpiryOption, type ExpirySel, type Lean } from '../lib/options';
 import type { VenuePref } from './useMarketData';
 
 export interface ChainLean {
@@ -11,6 +11,8 @@ export interface ChainLean {
   maxPain: number | null;
   /** Resolved expiry code for this chain ('D1', 'W1', …) or 'all'. */
   expiry: string;
+  /** Every expiry this chain lists, for the asset's own dropdown in the strip. */
+  expiries: ExpiryOption[];
   updatedAt: number;
 }
 
@@ -40,7 +42,7 @@ export function useChainLeans(assets: Asset[], venuePref: VenuePref, expiryBy: P
             const scoped = sel ? [...sel.calls, ...sel.puts] : opts;
             const pcr = scoped.length ? putCallRatio(scoped) : null;
             const l = pcr ? lean(pcr.putOiUsd, pcr.callOiUsd) : null;
-            const next: ChainLean = { lean: l, tone: leanTone(l), maxPain: scoped.length ? maxPain(scoped) : null, expiry: sel ? codes.get(sel.expiryMs) ?? 'all' : 'all', updatedAt: Date.now() };
+            const next: ChainLean = { lean: l, tone: leanTone(l), maxPain: scoped.length ? maxPain(scoped) : null, expiry: sel ? codes.get(sel.expiryMs) ?? 'all' : 'all', expiries: expiryOptions(groups, codes), updatedAt: Date.now() };
             if (alive) setState((s) => ({ ...s, [a]: next }));
           } catch {
             /* keep the last good read; the primary feed's error banner covers connectivity */

@@ -14,7 +14,24 @@ permissions:
   contents: write
 
 jobs:
+  # One release, created up front as a draft: when both build jobs find no release they each create one, and the
+  # files split across two releases with the same tag (v0.3.1 did this; Windows ended up off "latest"). It is
+  # published only after both builds have uploaded, so "latest" never points at a release without its files.
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "tag=v$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "${TAG#v}" --notes "See CHANGELOG.md." --target "$GITHUB_SHA"
+
   build:
+    needs: release
     strategy:
       fail-fast: false
       matrix:
@@ -64,3 +81,12 @@ jobs:
         run: npx electron-builder ${{ matrix.args }} $EB_EXTRA --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "${{ needs.release.outputs.tag }}" --draft=false --latest

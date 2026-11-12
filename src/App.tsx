@@ -28,7 +28,7 @@ import type { Palette } from './lib/heatmapSeries';
 import { ivRank } from './lib/ivrank';
 import { currentClusters, type LiqModel, type LiqSide } from './lib/liquidation';
 import {
-  atmIv, expectedMove, expiryCodes, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25, smile, termStructure,
+  atmIv, expectedMove, expiryCodes, expiryOptions, gammaExposure, groupByExpiry, lean, maxPain, oiByStrike, putCallRatio, realizedVol, resolveExpiry, skew25, smile, termStructure,
   type ExpirySel,
 } from './lib/options';
 
@@ -214,6 +214,7 @@ export function App() {
   const groups = useMemo(() => groupByExpiry(data.options), [data.options]);
   const codes = useMemo(() => expiryCodes(groups.map((g) => g.expiryMs)), [groups]);
   const selected = resolveExpiry(groups, codes, expiryFor(asset));
+  const selectedCode = selected ? codes.get(selected.expiryMs) ?? 'all' : 'all';
   const front = groups[0] ?? null;
   const smileGroup = selected ?? front;
   const scoped = useMemo(() => (selected ? [...selected.calls, ...selected.puts] : data.options), [selected, data.options]);
@@ -271,7 +272,7 @@ export function App() {
   const stripItems = ASSETS.filter((a) => stripAssets.includes(a)).map((a) => ({
     asset: a,
     read: a === asset
-      ? { lean: primaryLean, tone: leanTone(primaryLean), maxPain: mp, expiry: selected ? codes.get(selected.expiryMs) ?? 'all' : 'all', updatedAt: Date.now() }
+      ? { lean: primaryLean, tone: leanTone(primaryLean), maxPain: mp, expiry: selectedCode, expiries: expiryOptions(groups, codes), updatedAt: Date.now() }
       : otherLeans[a],
   }));
   const nearest = heatmap && perpPrice > 0 ? currentClusters(heatmap, perpPrice, 1) : [];
@@ -413,7 +414,7 @@ export function App() {
           {HEALTH_LABEL[data.health]}
           {lastGood && <span className="age"> · {ageText(lastGood, now)}</span>}
         </span>
-        {!widget && <LeanStrip items={stripItems} active={asset} onPick={(a) => setAsset(a)} />}
+        {!widget && <LeanStrip items={stripItems} active={asset} onPick={(a) => setAsset(a)} onExpiry={(a, sel) => setExpiryFor(a)(sel)} />}
         {widget ? (
           <div className="seg" role="group" aria-label="Assets shown" title="Show several assets at once; the first one drives alerts and the tab title">
             {ASSETS.map((a) => (
@@ -441,8 +442,11 @@ export function App() {
             </button>
           </div>
         )}
-        {/* Several widget cards each carry their own asset's dropdown instead. */}
-        {!(widget && shownAssets.length > 1) && <ExpirySelect groups={groups} codes={codes} selected={selected} onChange={setExpiryFor(asset)} />}
+        {/* Each asset's own dropdown lives in its strip item (desk) or its card (several widget assets); this one is for
+            a single widget asset, an asset left out of the strip, or narrow screens where the strip is hidden. */}
+        {!(widget && shownAssets.length > 1) && (
+          <ExpirySelect options={expiryOptions(groups, codes)} value={selectedCode} onChange={setExpiryFor(asset)} className={!widget && stripAssets.includes(asset) ? 'narrow-only' : ''} />
+        )}
         {asset !== 'XAUT' && (
           <div className="seg" role="group" aria-label="Options venue" title="Which exchange's option chain to analyse. Delta matches the numbers in Delta's own app; Deribit is the deepest market.">
             {(['delta', 'deribit'] as VenuePref[]).map((v) => (

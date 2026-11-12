@@ -5,7 +5,7 @@ import { useMarketData, type MarketData, type RangeKey, type VenuePref } from '.
 import { fmtDateShort, fmtPct, fmtPrice, fmtUsd } from '../lib/format';
 import { ivRank } from '../lib/ivrank';
 import { currentClusters, type LiqModel } from '../lib/liquidation';
-import { atmIv, expiryCodes, groupByExpiry, maxPain, resolveExpiry, type ExpirySel } from '../lib/options';
+import { atmIv, expiryCodes, expiryOptions, groupByExpiry, maxPain, resolveExpiry, type ExpirySel } from '../lib/options';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ExpirySelect } from './ExpirySelect';
 import { RatioPanel } from './RatioPanel';
@@ -47,7 +47,7 @@ export function WidgetCard({ asset, data, expirySel, onExpiry, model }: CardProp
         <RatioPanel
           options={data.options} history={data.pcrHistory} venue={data.optionsVenue} unit={UNIT[asset]} loading={data.loading} compact
           selectedExpiryMs={selected ? selected.expiryMs : null} codes={codes} context={context}
-          expiryControl={onExpiry && <ExpirySelect groups={groups} codes={codes} selected={selected} onChange={onExpiry} asset={name} />}
+          expiryControl={onExpiry && <ExpirySelect options={expiryOptions(groups, codes)} value={selected ? codes.get(selected.expiryMs) ?? 'all' : 'all'} onChange={onExpiry} asset={name} />}
         />
       </ErrorBoundary>
       <div className="widget-strip tiles">

@@ -288,12 +288,21 @@ export function fmtLean(l: Lean, digits = 2): string {
 }
 
 /**
- * Header expiry selection, kept as Delta's code ('D1', 'W2', …) or 'all' so it carries across
- * assets and venues: each chain resolves the code against its own expiries. A code the chain does
- * not have falls back to the nearest expiry, so "D1" always means "the front".
+ * Expiry selection, kept per asset as Delta's code ('D1', 'W2', …) or 'all': each chain resolves the
+ * code against its own expiries. A code the chain does not have falls back to the nearest expiry.
  */
 export type ExpirySel = 'all' | string;
 export function resolveExpiry(groups: ExpiryGroup[], codes: Map<number, string>, sel: ExpirySel): ExpiryGroup | null {
   if (sel === 'all') return null;
   return groups.find((g) => codes.get(g.expiryMs) === sel) ?? groups[0] ?? null;
+}
+
+/** One entry of an expiry dropdown: what the chain lists, without the chain itself. */
+export interface ExpiryOption {
+  code: string;
+  expiryMs: number;
+  dte: number;
+}
+export function expiryOptions(groups: ExpiryGroup[], codes: Map<number, string>): ExpiryOption[] {
+  return groups.map((g) => ({ code: codes.get(g.expiryMs) ?? '', expiryMs: g.expiryMs, dte: g.dte }));
 }
